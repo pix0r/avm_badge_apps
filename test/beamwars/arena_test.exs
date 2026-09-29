@@ -1,7 +1,7 @@
-defmodule Badge.App.Goatron.ArenaTest do
+defmodule Badge.App.Beamwars.ArenaTest do
   use ExUnit.Case, async: true
 
-  alias Badge.App.Goatron.{Arena, Game}
+  alias Badge.App.Beamwars.{Arena, Game}
 
   defp roster do
     [%{id: 1, position: {2, 3}, direction: :east}, %{id: 2, position: {6, 5}, direction: :west}]
@@ -9,10 +9,10 @@ defmodule Badge.App.Goatron.ArenaTest do
 
   test "the core uses defined state, config, arena and player structs" do
     {:ok, game} = Game.new(%{width: 9, height: 9}, roster())
-    assert is_struct(game, Badge.App.Goatron.State)
-    assert is_struct(game.config, Badge.App.Goatron.Config)
+    assert is_struct(game, Badge.App.Beamwars.State)
+    assert is_struct(game.config, Badge.App.Beamwars.Config)
     assert is_struct(game.arena, Arena)
-    assert is_struct(game.players[1], Badge.App.Goatron.Player)
+    assert is_struct(game.players[1], Badge.App.Beamwars.Player)
     assert game.config.shrink_after == 32
   end
 

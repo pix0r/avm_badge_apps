@@ -22,3 +22,8 @@ This project needs `avm_badge` checked out next to it.
 
 Badges see a push within about five minutes. A published version is never
 rebuilt with different bytes: bump `version` instead.
+
+## BeamWars development
+
+[Run the browser demo, headless matches, and tune AI](apps/beamwars/README.md).
+[Build plan and badge examples](docs/tron-plan.md).

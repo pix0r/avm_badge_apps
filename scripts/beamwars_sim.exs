@@ -1,9 +1,9 @@
-Code.require_file("goatron_core.exs", __DIR__)
-Code.require_file(Path.expand("../apps/goatron/lib/render.ex", __DIR__))
-Code.require_file(Path.expand("../apps/goatron/lib/page.ex", __DIR__))
+Code.require_file("beamwars_core.exs", __DIR__)
+Code.require_file(Path.expand("../apps/beamwars/lib/render.ex", __DIR__))
+Code.require_file(Path.expand("../apps/beamwars/lib/page.ex", __DIR__))
 
 # Register the development page without changing the firmware checkout.
-pages = [Badge.App.Goatron.Page | Badge.Pages.all()]
+pages = [Badge.App.Beamwars.Page | Badge.Pages.all()]
 keys = Badge.Pages.keys()
 Code.compiler_options(ignore_module_conflict: true)
 
@@ -24,5 +24,5 @@ Code.compile_quoted(
 
 Code.compiler_options(ignore_module_conflict: false)
 Badge.Backlight.store(80, :off)
-Badge.UI.goto(Badge.App.Goatron.Page)
-IO.puts("GoaTRON ready: http://localhost:3240 | Space pause | r rematch | b AI | arrows/A-D/J-L/V-N steer")
+Badge.UI.goto(Badge.App.Beamwars.Page)
+IO.puts("BeamWars ready: http://localhost:3240 | Space pause | r rematch | b AI | arrows/A-D/J-L/V-N steer")

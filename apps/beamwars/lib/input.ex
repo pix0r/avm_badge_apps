@@ -1,4 +1,4 @@
-defmodule Badge.App.Goatron.Input do
+defmodule Badge.App.Beamwars.Input do
   @moduledoc """
   Pure human input state, keyed by player ID rather than physical key bindings.
 

@@ -1,4 +1,4 @@
-defmodule Badge.App.Goatron.Player do
+defmodule Badge.App.Beamwars.Player do
   @moduledoc "A bike's identity and physical state. Controller assignments are external."
   @enforce_keys [:id, :position, :direction]
   defstruct [:id, :position, :direction, alive: true]

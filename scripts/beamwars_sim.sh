@@ -8,4 +8,4 @@ if [[ ! -f "$GOATRON_BADGE/mix.exs" ]]; then
 fi
 cd -- "$GOATRON_BADGE"
 export MIX_TARGET=host
-exec mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- iex -S mix run "$GOATRON_ROOT/scripts/goatron_sim.exs"
+exec mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- iex -S mix run "$GOATRON_ROOT/scripts/beamwars_sim.exs"

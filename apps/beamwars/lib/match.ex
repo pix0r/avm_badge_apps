@@ -1,30 +1,30 @@
-defmodule Badge.App.Goatron.Match do
+defmodule Badge.App.Beamwars.Match do
   @moduledoc """
   Pure match runner. Tick once for interactive play or run without clocks for
   headless simulation. Controller entries are `:human` or `{module, memory}`.
   Replay commands are stored newest first, one entry per completed tick.
   """
-  alias Badge.App.Goatron.{Bot, Config, Game, Player, State}
+  alias Badge.App.Beamwars.{Bot, Config, Game, Player, State}
 
   @enforce_keys [:game, :controllers]
-  defstruct [:game, :controllers, pending: %{}, replay: [], events: []]
+  defstruct [:game, :controllers, scores: %{}, pending: %{}, replay: [], events: []]
   @type t :: %__MODULE__{game: State.t(), controllers: map(), pending: map(), replay: [Game.inputs()], events: [Game.event()]}
 
-  @doc "Creates a deterministic four-bot match with quarter-board spawns."
-  def demo(options \\ %{width: 64, height: 36}, seed \\ 1) do
+  @doc "Creates a deterministic four-bot match with edge-midpoint spawns."
+  def demo(options \\ %{width: 64, height: 36}, seed \\ 1, profiles \\ %{}) do
     {:ok, config} = Config.new(options)
     w = config.width
     h = config.height
 
     roster = [
-      %Player{id: 1, position: {div(w, 4), div(h, 4)}, direction: :east},
-      %Player{id: 2, position: {w - div(w, 4) - 1, div(h, 4)}, direction: :south},
-      %Player{id: 3, position: {w - div(w, 4) - 1, h - div(h, 4) - 1}, direction: :west},
-      %Player{id: 4, position: {div(w, 4), h - div(h, 4) - 1}, direction: :north}
+      %Player{id: 1, position: {div(w, 2), h - 1}, direction: :north},
+      %Player{id: 2, position: {div(w, 2), 0}, direction: :south},
+      %Player{id: 3, position: {0, div(h, 2)}, direction: :east},
+      %Player{id: 4, position: {w - 1, div(h, 2)}, direction: :west}
     ]
 
     {:ok, game} = Game.new(config, roster)
-    controllers = Map.new(roster, &{&1.id, {Bot, Bot.init(seed * 31 + &1.id * 13)}})
+    controllers = Map.new(roster, &{&1.id, {Bot, Bot.init(seed * 31 + &1.id * 13, Map.get(profiles, &1.id, :intermediate))}})
     %__MODULE__{game: game, controllers: controllers}
   end
 
@@ -52,7 +52,13 @@ defmodule Badge.App.Goatron.Match do
       end)
 
     {:ok, game, events} = Game.step(match.game, turns)
-    %{match | game: game, controllers: controllers, pending: %{}, events: events, replay: [turns | match.replay]}
+
+    scores =
+      Enum.reduce(Game.living(game), match.scores, fn player, scores ->
+        Map.update(scores, player.id, 1, &(&1 + 1))
+      end)
+
+    %{match | scores: scores, game: game, controllers: controllers, pending: %{}, events: events, replay: [turns | match.replay]}
   end
 
   @spec run(t(), non_neg_integer()) :: t()

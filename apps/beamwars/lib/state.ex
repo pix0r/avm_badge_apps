@@ -1,6 +1,6 @@
-defmodule Badge.App.Goatron.State do
+defmodule Badge.App.Beamwars.State do
   @moduledoc "Complete, serializable round state. No clocks, processes or UI data."
-  alias Badge.App.Goatron.{Arena, Config, Player}
+  alias Badge.App.Beamwars.{Arena, Config, Player}
 
   @enforce_keys [:config, :arena, :players, :occupied]
   defstruct [:config, :arena, :players, :occupied, tick: 0, status: :running]

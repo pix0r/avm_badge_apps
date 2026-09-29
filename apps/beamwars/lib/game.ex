@@ -1,10 +1,10 @@
-defmodule Badge.App.Goatron.Game do
+defmodule Badge.App.Beamwars.Game do
   @moduledoc """
   Pure, simultaneous lightcycle rules. Left/right commands apply for one tick;
   omission preserves heading. Trails remain occupied after elimination.
   Contraction removes the outer ring before movement and sweeps bikes on it.
   """
-  alias Badge.App.Goatron.{Arena, Config, Player, State}
+  alias Badge.App.Beamwars.{Arena, Config, Player, State}
 
   @type event :: {:crashed, integer(), Player.position()} | {:arena_shrank, non_neg_integer()}
   @type inputs :: %{integer() => :left | :right}

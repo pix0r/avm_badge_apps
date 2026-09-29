@@ -1,5 +1,5 @@
-Code.require_file("goatron_core.exs", __DIR__)
-alias Badge.App.Goatron.Match
+Code.require_file("beamwars_core.exs", __DIR__)
+alias Badge.App.Beamwars.Match
 
 {options, _, invalid} =
   OptionParser.parse(System.argv(),

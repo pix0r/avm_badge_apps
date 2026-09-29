@@ -1,6 +1,6 @@
-defmodule Badge.App.Goatron.Arena do
+defmodule Badge.App.Beamwars.Arena do
   @moduledoc "Inclusive playable bounds and the next contraction deadline."
-  alias Badge.App.Goatron.Config
+  alias Badge.App.Beamwars.Config
 
   @enforce_keys [:left, :top, :right, :bottom]
   defstruct [:left, :top, :right, :bottom, :next_shrink_tick, inset: 0]

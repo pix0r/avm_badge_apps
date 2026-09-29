@@ -1,6 +1,6 @@
-defmodule Badge.App.Goatron.GameTest do
+defmodule Badge.App.Beamwars.GameTest do
   use ExUnit.Case, async: true
-  alias Badge.App.Goatron.Game
+  alias Badge.App.Beamwars.Game
 
   defp players do
     [%{id: 1, position: {1, 2}, direction: :east}, %{id: 2, position: {5, 2}, direction: :west}]

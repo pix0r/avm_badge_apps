@@ -1,16 +1,24 @@
-defmodule Badge.App.Goatron.RenderTest do
+defmodule Badge.App.Beamwars.RenderTest do
   use ExUnit.Case, async: true
-  alias Badge.App.Goatron.{Match, Render}
+  alias Badge.App.Beamwars.{Match, Render}
 
   test "layout fits the configured board into badge content space" do
     match = Match.demo(%{width: 64, height: 36}, 1)
     layout = Render.layout(match.game.config)
-    assert is_struct(layout, Badge.App.Goatron.Render.Layout)
+    assert is_struct(layout, Badge.App.Beamwars.Render.Layout)
     assert layout.cell == 4
     assert layout.x >= 0
-    assert layout.y >= 44
+    assert layout.y >= 25
     assert layout.y + 36 * layout.cell <= 212
     assert Enum.all?(Render.scene(match.game, layout), &is_tuple/1)
+  end
+
+  test "classic beam colors and a board that uses the available badge area" do
+    assert Enum.map(1..4, &Render.color/1) == [0x0000FF, 0xFF0000, 0x00FF00, 0xFFFF00]
+    layout = Render.layout(Match.demo(%{width: 78, height: 46}).game.config)
+    assert layout.cell == 4
+    assert layout.x == 4
+    assert layout.y == 26
   end
 
   test "the warning ring visibly flashes before contraction" do

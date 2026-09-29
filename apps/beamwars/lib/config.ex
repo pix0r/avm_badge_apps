@@ -1,4 +1,4 @@
-defmodule Badge.App.Goatron.Config do
+defmodule Badge.App.Beamwars.Config do
   @moduledoc "Validated rules and tick-based timing for one round."
   @enforce_keys [:width, :height]
   defstruct [:width, :height, shrink_after: :perimeter, shrink_every: 20, warning_ticks: 8, step_ms: 100]

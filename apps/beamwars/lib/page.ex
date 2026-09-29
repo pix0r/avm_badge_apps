@@ -1,25 +1,26 @@
-defmodule Badge.App.Goatron.Page.State do
+defmodule Badge.App.Beamwars.Page.State do
   @moduledoc "Badge demo presentation, timing and tournament scores."
   @enforce_keys [:match, :layout]
-  defstruct [:match, :layout, :result_until, round: 1, wins: %{}, paused: false, due_at: nil, frame: 0]
+  defstruct [:match, :layout, :result_until, round: 1, scores: %{}, paused: false, due_at: nil, frame: 0]
 end
 
-defmodule Badge.App.Goatron.Page do
+defmodule Badge.App.Beamwars.Page do
   @moduledoc """
   Four AI riders with automatic rematches. Space pauses; r restarts; b restores AI.
   Left/right, A/D, J/L and V/N take over riders 1–4 respectively.
   """
   use Badge.Page
-  alias Badge.App.Goatron.{Arena, Match, Render}
+  alias Badge.App.Beamwars.{Match, Render}
   alias __MODULE__.State
 
   @impl true
-  def title, do: "GoaTRON"
+  def title, do: "BeamWars"
   @impl true
   def icon, do: :cross
   @impl true
-  def init do
-    match = Match.demo()
+  def init(options \\ []) do
+    rules = Keyword.get(options, :rules, %{width: 78, height: 46})
+    match = Match.demo(rules, Keyword.get(options, :seed, 1), Keyword.get(options, :profiles, %{}))
     %State{match: match, layout: Render.layout(match.game.config)}
   end
 
@@ -30,7 +31,7 @@ defmodule Badge.App.Goatron.Page do
   def handle_key({:char, char}, state) when char == ?b or char == ?B do
     match =
       Enum.reduce(1..4, state.match, fn id, match ->
-        Match.control(match, id, {Badge.App.Goatron.Bot, Badge.App.Goatron.Bot.init(state.round * 31 + id * 13)})
+        Match.control(match, id, {Badge.App.Beamwars.Bot, Badge.App.Beamwars.Bot.init(state.round * 31 + id * 13)})
       end)
 
     {:ok, %{state | match: match}}
@@ -63,17 +64,30 @@ defmodule Badge.App.Goatron.Page do
 
   def advance(state, now) do
     match = Match.tick(state.match)
-    state = %{state | match: match, due_at: now + match.game.config.step_ms, frame: state.frame + 1}
+
+    scores =
+      Enum.reduce(match.scores, state.scores, fn {id, score}, scores ->
+        gain = score - Map.get(state.match.scores, id, 0)
+        Map.update(scores, id, gain, &(&1 + gain))
+      end)
+
+    state = %{state | scores: scores, match: match, due_at: now + match.game.config.step_ms, frame: state.frame + 1}
 
     case match.game.status do
       :running -> state
       :draw -> %{state | result_until: now + 2000}
-      {:winner, id} -> %{state | result_until: now + 2000, wins: Map.update(state.wins, id, 1, &(&1 + 1))}
+      {:winner, _id} -> %{state | result_until: now + 2000}
     end
   end
 
   defp restart(state) do
-    match = Match.demo(state.match.game.config, state.round + 1)
+    profiles =
+      Map.new(state.match.controllers, fn
+        {id, {Badge.App.Beamwars.Bot, memory}} -> {id, memory.profile}
+        {id, _} -> {id, :intermediate}
+      end)
+
+    match = Match.demo(state.match.game.config, state.round + 1, profiles)
 
     match =
       Enum.reduce(state.match.controllers, match, fn
@@ -92,32 +106,21 @@ defmodule Badge.App.Goatron.Page do
   defp hud(state) do
     game = state.match.game
 
-    countdown =
-      case game.arena.next_shrink_tick do
-        nil ->
-          "FINAL ARENA"
-
-        deadline ->
-          if Arena.warning?(game.arena, game.config, game.tick),
-            do: "WALL IN " <> int(max(deadline - game.tick, 0)),
-            else: "SHRINK " <> int(max(deadline - game.tick, 0))
-      end
-
-    banner = if state.paused, do: "PAUSED", else: countdown
-
-    status =
-      text(10, 26, "ROUND " <> int(state.round) <> " / " <> int(game.tick), 0xA4B8C9) ++
-        text(207, 26, banner, 0xFFCA62)
-
     scores =
       for id <- 1..4 do
-        player = game.players[id]
-        label = "P" <> int(id) <> " " <> int(Map.get(state.wins, id, 0))
-        color = if player.alive, do: Render.color(id), else: 0x52616D
-        {:text, 12 + (id - 1) * 79, 217, :default16px, color, :transparent, label}
+        label = int(Map.get(state.scores, id, 0))
+        {:text, 8 + (id - 1) * 47, 220, :default16px, Render.color(id), :transparent, label}
       end
 
-    status ++ scores
+    energy =
+      case game.arena.next_shrink_tick do
+        nil -> 0
+        deadline -> max(deadline - game.tick, 0)
+      end
+
+    scores ++
+      text(210, 213, "Board Energy", 0xFFFFFF) ++
+      text(250, 224, int(energy), 0xFFFFFF)
   end
 
   defp overlay(%State{paused: true}), do: panel("PAUSED", "Space to resume", 0xFFFFFF)

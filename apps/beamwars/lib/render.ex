@@ -1,28 +1,28 @@
-defmodule Badge.App.Goatron.Render.Layout do
+defmodule Badge.App.Beamwars.Render.Layout do
   @moduledoc "Pixel geometry for a badge-sized arena."
   @enforce_keys [:x, :y, :cell]
   defstruct [:x, :y, :cell]
 end
 
-defmodule Badge.App.Goatron.Render do
+defmodule Badge.App.Beamwars.Render do
   @moduledoc "AtomGL content items, drawn front-to-back, for a 320×240 badge."
-  alias Badge.App.Goatron.{Arena, Config, Game, State}
+  alias Badge.App.Beamwars.{Arena, Config, Game, State}
   alias __MODULE__.Layout
 
-  @board 0x09131C
-  @grid 0x142330
-  @wall 0x477083
+  @board 0x000020
+  @grid 0x000060
+  @wall 0x777777
   @danger 0xFF694D
 
-  def color(1), do: 0x39DDF1
-  def color(2), do: 0xFFCA62
-  def color(3), do: 0xF878A7
-  def color(4), do: 0x88E3A3
+  def color(1), do: 0x0000FF
+  def color(2), do: 0xFF0000
+  def color(3), do: 0x00FF00
+  def color(4), do: 0xFFFF00
   def color(_), do: 0xA4B4FF
 
   def layout(%Config{width: width, height: height}) do
-    cell = max(1, min(div(304, width), div(164, height)))
-    %Layout{x: div(320 - width * cell, 2), y: 44 + div(164 - height * cell, 2), cell: cell}
+    cell = max(1, min(div(312, width), div(184, height)))
+    %Layout{x: div(320 - width * cell, 2), y: 26 + div(184 - height * cell, 2), cell: cell}
   end
 
   @doc "Heads and trails over a grid; warning marks cover the ring about to disappear."

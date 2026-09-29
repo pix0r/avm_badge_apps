@@ -1,13 +1,35 @@
-defmodule Badge.App.Goatron.PageTest do
+defmodule Badge.App.Beamwars.PageTest do
   use ExUnit.Case, async: true
-  alias Badge.App.Goatron.{Match, Page, Render}
+  alias Badge.App.Beamwars.{Match, Page, Render}
 
   test "the badge page owns typed demo state and produces content" do
     state = Page.init()
-    assert is_struct(state, Badge.App.Goatron.Page.State)
+    assert is_struct(state, Badge.App.Beamwars.Page.State)
     assert is_struct(state.match, Match)
     assert is_struct(state.layout, Render.Layout)
     assert Enum.all?(Page.render(state), &is_tuple/1)
+  end
+
+  test "BeamWars shows bottom scores and board energy without a round or shrink label" do
+    state = Page.init()
+    assert Page.title() == "BeamWars"
+    assert state.match.game.config.width == 78
+    assert state.match.game.config.height == 46
+    labels = for {:text, _, _, _, _, _, label} <- Page.render(state), do: label
+    assert "Board Energy" in labels
+    refute Enum.any?(labels, &(String.contains?(&1, "ROUND") or String.contains?(&1, "SHRINK")))
+    next = Page.advance(state, 1000)
+    assert next.scores == %{1 => 1, 2 => 1, 3 => 1, 4 => 1}
+  end
+
+  test "demo rules and per-rider AI parameters are configurable and survive rematches" do
+    state = Page.init(rules: %{width: 40, height: 30, step_ms: 200}, profiles: %{1 => :beginner})
+    assert state.match.game.config.step_ms == 200
+    {_, pilot} = state.match.controllers[1]
+    assert pilot.profile.reaction_ticks == 5
+    {:ok, restarted} = Page.handle_key({:char, ?r}, state)
+    {_, next_pilot} = restarted.match.controllers[1]
+    assert next_pilot.profile == pilot.profile
   end
 
   test "timing respects configured speed and pause freezes the match" do
@@ -51,6 +73,6 @@ defmodule Badge.App.Goatron.PageTest do
     restarted = Page.advance(state, 3000)
     assert restarted.round == 2
     assert restarted.match.game.tick == 0
-    assert restarted.wins == state.wins
+    assert restarted.scores == state.scores
   end
 end

@@ -1,6 +1,6 @@
-defmodule Badge.App.Goatron.InputTest do
+defmodule Badge.App.Beamwars.InputTest do
   use ExUnit.Case, async: true
-  alias Badge.App.Goatron.Input
+  alias Badge.App.Beamwars.Input
 
   test "a tap between ticks is consumed exactly once" do
     input = Input.new() |> Input.press(1, :left) |> Input.release(1, :left)

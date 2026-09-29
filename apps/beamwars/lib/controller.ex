@@ -1,9 +1,9 @@
-defmodule Badge.App.Goatron.Controller do
+defmodule Badge.App.Beamwars.Controller do
   @moduledoc """
   A pure input source. Controllers see the same pre-step state and return a turn
   or nil. Controller memory stays in the runner and never enters game state.
   """
-  alias Badge.App.Goatron.{Player, State}
+  alias Badge.App.Beamwars.{Player, State}
 
   @callback init(integer()) :: term()
   @callback choose(State.t(), integer(), term()) :: {Player.turn(), term()}
