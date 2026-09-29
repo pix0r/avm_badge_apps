@@ -89,3 +89,5 @@ Sources: [Enum](https://github.com/protolux-electronics/AtomVM/blob/badge-v1/lib
 [Map](https://github.com/protolux-electronics/AtomVM/blob/badge-v1/libs/exavmlib/lib/Map.ex),
 [lists](https://github.com/protolux-electronics/AtomVM/blob/badge-v1/libs/estdlib/src/lists.erl),
 [native functions](https://github.com/protolux-electronics/AtomVM/blob/badge-v1/src/libAtomVM/nifs.c).
+
+Resource validation: [Snake hardware report, measurements and constrained-runtime options](beamwars-resources.md).

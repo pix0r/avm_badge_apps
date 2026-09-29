@@ -195,3 +195,6 @@ For a quick contraction stress run:
 mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- elixir scripts/beamwars_headless.exs \
   --rounds 20 --level expert --shrink-after 12 --shrink-every 6
 ```
+
+See [resource testing notes](../../docs/beamwars-resources.md) for the Snake hardware
+report, measured rendering risks, native AtomVM heap caps and ESP32-S3 QEMU options.
