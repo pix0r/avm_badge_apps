@@ -1,6 +1,7 @@
 # BeamWars build plan and reading guide
 
-The typed functional core, deterministic AI/controllers, headless runner and badge
+The typed functional core, explosion clearing/retraction, configurable AI/controllers,
+player setup, scoring/bonuses, headless runner and badge
 browser demo are implemented. See [run instructions and tuning](../apps/beamwars/README.md).
 The game was initially called GoaTRON; the current app ID and namespace are
 `beamwars` and `Badge.App.Beamwars`.
@@ -45,7 +46,7 @@ Prefer this firmware's actual fork over generic documentation for runtime suppor
 | Config / Arena / Player / State structs | Explicit, validated game data |
 | Game | Pure deterministic simultaneous steps and collision resolution |
 | Controller / Bot.Profile / Bot | Input-source contract and tunable AI memory/policy |
-| Match | Controller ownership, pending input, replay, survival scores |
+| Match | Controller ownership, pending input, replay, survival scores and bonuses |
 | Page.State / Page | Badge clock adapter, key bindings, rematches and total scores |
 | Render.Layout / Render | Convert state into drawing items |
 

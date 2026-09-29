@@ -11,7 +11,7 @@ From the apps repository, with Elixir 1.18.3 / OTP 27 installed through mise:
 ```sh
 # No dependencies or simulator needed for these:
 mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- elixir scripts/beamwars_test.exs
-mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- elixir scripts/beamwars_headless.exs --rounds 20
+mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- elixir scripts/beamwars_headless.exs --rounds 20 --level expert
 
 # Browser (requires ../avm_badge and its dependencies):
 ./scripts/beamwars_sim.sh
@@ -19,7 +19,7 @@ mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- elixir scripts/beamwars_headless
 
 On first setup, run `MIX_TARGET=host mix deps.get` in `../avm_badge` with the same
 mise toolchain. The script accepts `AVM_BADGE_PATH` for a different firmware path.
-Visit http://localhost:3240. Four AI riders start automatically, scores accumulate,
+Visit http://localhost:3240. Four AI riders launch after a three-second countdown, scores accumulate,
 and completed rounds restart after two seconds. Two browser tabs share one board.
 Exit the simulator's IEx with Ctrl-C, then `a`.
 
@@ -30,9 +30,16 @@ Exit the simulator's IEx with Ctrl-C, then `a`.
 | J / L | Take over green (player 3) |
 | V / N | Take over yellow (player 4) |
 | Space | Pause / resume |
-| R | New round, preserve scores |
+| R | New round, preserve total scores |
+| S | Open / cancel player settings |
 | B | Return all riders to default AI |
 | Esc, then F1 | Home, then reopen BeamWars |
+
+In settings, Up/Down selects a player; Left/Right cycles Human, AI Novice,
+Intermediate, Expert, Pro and Inactive. C cycles left/right key presets; choosing
+an occupied preset swaps assignments. R toggles beam retraction. Enter applies
+settings and starts a new countdown. At least two slots must be active. Settings
+suspend the match; S cancels without applying changes.
 
 A keypress supplies one turn on the next tick; absent input maintains direction.
 The last press before a tick wins. Held-key integration remains deferred.
@@ -45,13 +52,25 @@ The core accepts arbitrary rosters of two or more players through `Game.new/2`;
 `Match.demo/3` supplies four edge spawns and requires dimensions at least 2×2.
 
 All movement is simultaneous. Own trails, opponents' trails, old heads, walls,
-and shared destinations kill a rider. Trails persist after death. The last rider
+and shared destinations kill a rider. The badge preset enables explosions with a two-cell radius and dead-beam
+retraction at eight cells per tick. A crash clears nearby trail cells immediately,
+after simultaneous collision resolution, while preserving surviving heads.
+Retraction then removes the dead player's path from head back toward its cannon.
+Set `explosion_radius: 0` and `retract_speed: 0` for permanent trails.
+The last rider
 wins; simultaneous elimination of the last riders is a draw. Each successful
-surviving step earns one point. A crashing step earns none. Terminal states earn
-no more points. The demo totals survival points across rematches, with no win bonus.
+surviving step earns 25 points. A crashing step earns none. Bonus starts at 5,000
+and decreases by 15 per tick, with a minimum of zero. The sole winner receives
+that bonus once; draws award none. Terminal states earn no further points.
+The footer shows round survival points above combined totals for each color,
+with Energy and Bonus on the right. Large displayed scores use `k` abbreviations;
+the stored values remain exact. The result announces the winner's bonus.
+These rates are configurable with `points_per_tick`, `bonus_start`, and `bonus_decay`;
+set the bonus start to zero to disable it.
 
 `Config` fields: `width`, `height`, `step_ms`, `shrink_after`, `shrink_every`,
-`warning_ticks`. Initial contraction defaults to the number of boundary cells,
+`warning_ticks`, `explosion_radius`, `retract_speed`, `points_per_tick`,
+`bonus_start`, and `bonus_decay`. Initial contraction defaults to the number of boundary cells,
 `2 * (width + height) - 4`; `shrink_after: :never` disables it. Each contraction
 removes one outer ring before movement. A rider on that ring is swept away.
 Warnings flash during the final eight ticks, then shrink every twenty ticks.
@@ -60,15 +79,36 @@ the contraction interval after each shrink. The final minimum arena stops shrink
 
 Wikipedia confirms survival-based scoring and timed contraction; the screenshot
 confirms colors, edge starts, and bottom scores/energy. The exact original energy
-formula and draw behavior are unverified. Our explicit rules above are adaptation
-choices, not claims of exact emulation.
+formula and draw behavior are unverified. The supplied screenshots support the score/bonus rates; our explicit rules above
+are adaptation choices, not claims of exact emulation.
 
 ## AI and controllers
 
 Every rider has a controller: `:human` or `{module, memory}`. Modules implement
 `Controller.init/1` and `choose(game, player_id, memory) -> {turn_or_nil, memory}`.
 All controllers see the same pre-step state, never opponents' queued commands.
-Changing ownership clears pending human input. The game core knows nothing about
+Changing ownership clears pending human input.
+`Match.demo/3` accepts `:human`, `:inactive`, built-in profile settings, or any
+`{module, memory}` controller for each slot. For example:
+
+```elixir
+defmodule MyPilot do
+  @behaviour Badge.App.Beamwars.Controller
+  def init(seed), do: seed
+  def choose(_game, _id, memory), do: {:left, memory + 1}
+end
+
+Match.demo(%{width: 78, height: 46}, 1, %{
+  1 => {MyPilot, MyPilot.init(7)}, 2 => :human, 4 => :inactive
+})
+```
+
+This intentionally simple sample is a working interface example, not a competitive
+policy. Local controller code is trusted and runs synchronously; future external
+entrants need isolated execution and deadline enforcement in the network runner.
+Remote input already has a suitable adapter boundary: assign `:human`, submit an
+accepted turn with `Match.command/3`, and advance once with `Match.tick/1`. No socket
+or remote service is implemented yet. The game core knows nothing about
 controller code. `Match.replay` records command maps newest first; reverse it and
 feed `Game.step/2` to replay a match without running the AI again.
 
@@ -106,7 +146,7 @@ match = Match.demo(%{width: 78, height: 46}, 42, %{
   3 => [reaction_ticks: 4, decision_delay: 2, aggression: 7],
   4 => :pro
 })
-result = Match.run(match, 78 * 46)
+result = Match.run(match, 78 * 46 * 5)
 
 # Configurable badge shell; AI profiles survive rematches:
 Page.init(rules: %{width: 78, height: 46, step_ms: 100}, profiles: %{1 => :expert})
@@ -135,10 +175,23 @@ and store publishing are unchanged. The renderer compresses horizontal trail run
 Host verification does not prove AtomVM instruction compatibility, ESP32 memory
 usage, display performance, or radio behavior. The real badge UI ticks every 100 ms,
 so faster requested movement rates cannot be achieved by changing `step_ms` alone.
-Network play and hardware validation are the next milestones. Current full-project
-pack tests require `Badge.Store`, missing from this sibling checkout; align firmware
+A compiled-import regression checks that game modules avoid `Map.new/2`,
+`Map.update/4`, and `Map.update!/3`, which are absent from the badge-v1 Elixir
+library. This limited check is not a full AtomVM compatibility verdict.
+Network play and hardware validation are the next milestones. The whole-project `mix atomvm.check` currently stops inside ExAtomVM while trying
+to list the absent host-only Phoenix dependency in the badge build, before it can
+validate calls. Current full-project pack tests require `Badge.Store`, missing from this sibling checkout; align firmware
 versions before packaging or publishing.
 
 Original references: [BeamWars](https://en.wikipedia.org/wiki/BeamWars),
 [screenshot and archive](https://www.macintoshrepository.org/3074-beamwars).
 See [the build plan and reading guide](../../docs/tron-plan.md) for local examples.
+
+Headless options include `--width`, `--height`, `--seed`, `--level`,
+`--shrink-after`, `--shrink-every`, `--explosion-radius`, and `--retract-speed`.
+For a quick contraction stress run:
+
+```sh
+mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- elixir scripts/beamwars_headless.exs \
+  --rounds 20 --level expert --shrink-after 12 --shrink-every 6
+```

@@ -18,7 +18,7 @@ defmodule Badge.App.Beamwars.RenderTest do
     layout = Render.layout(Match.demo(%{width: 78, height: 46}).game.config)
     assert layout.cell == 4
     assert layout.x == 4
-    assert layout.y == 26
+    assert layout.y == 24
   end
 
   test "the warning ring visibly flashes before contraction" do
@@ -34,10 +34,45 @@ defmodule Badge.App.Beamwars.RenderTest do
   test "trails on a removed ring are hidden, without mutating the game" do
     match = Match.demo(%{width: 32, height: 24}, 1)
     game = match.game
-    game = %{game | occupied: Map.put(game.occupied, {0, 0}, 1), arena: %{game.arena | left: 1, top: 1, right: 30, bottom: 22, inset: 1}}
+
+    game = %{
+      game
+      | occupied: Map.put(game.occupied, {0, 0}, 1),
+        arena: %{game.arena | left: 1, top: 1, right: 30, bottom: 22, inset: 1}
+    }
+
     layout = Render.layout(game.config)
     rect = {:rect, layout.x, layout.y, layout.cell, layout.cell, Render.color(1)}
     refute rect in Render.scene(game, layout)
     assert game.occupied[{0, 0}] == 1
+  end
+
+  test "death effects use the player's color and cannons are present before launch" do
+    match = Match.demo(%{width: 78, height: 46})
+    layout = Render.layout(match.game.config)
+    effects = [%Render.Explosion{id: 2, position: {39, 23}}]
+    items = Render.explosions(effects, layout, match.game.arena)
+    assert items != []
+    assert Enum.all?(items, fn {:rect, _, _, _, _, color} -> color == Render.color(2) end)
+    assert Render.cannons(match.game, layout) != []
+  end
+
+  test "cannons expose colored emitters at all four launch edges" do
+    match = Match.demo(%{width: 78, height: 46})
+    layout = Render.layout(match.game.config)
+    items = Render.cannons(match.game, layout)
+
+    for {id, player} <- match.game.players do
+      {column, row} = player.position
+      x = layout.x + column * layout.cell
+      y = layout.y + row * layout.cell
+
+      visible =
+        Enum.find(items, fn {:rect, left, top, width, height, _color} ->
+          x >= left and x < left + width and y >= top and y < top + height
+        end)
+
+      assert elem(visible, 5) == Render.color(id)
+    end
   end
 end

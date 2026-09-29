@@ -15,7 +15,10 @@ Code.compile_quoted(
       def all, do: @pages
       def keys, do: @keys
       def screens, do: div(length(@pages) + length(@keys) - 1, length(@keys))
-      def screen(index), do: Enum.zip(@keys, Enum.take(Enum.drop(@pages, index * length(@keys)), length(@keys)))
+
+      def screen(index),
+        do: Enum.zip(@keys, Enum.take(Enum.drop(@pages, index * length(@keys)), length(@keys)))
+
       def for_key(key), do: for_key(key, 0)
       def for_key(key, index), do: Keyword.get(screen(index), key)
     end
@@ -25,4 +28,7 @@ Code.compile_quoted(
 Code.compiler_options(ignore_module_conflict: false)
 Badge.Backlight.store(80, :off)
 Badge.UI.goto(Badge.App.Beamwars.Page)
-IO.puts("BeamWars ready: http://localhost:3240 | Space pause | r rematch | b AI | arrows/A-D/J-L/V-N steer")
+
+IO.puts(
+  "BeamWars ready: http://localhost:3240 | Space pause | r rematch | b AI | arrows/A-D/J-L/V-N steer"
+)
