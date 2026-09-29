@@ -48,10 +48,10 @@ defmodule Badge.App.Beamwars.RenderTest do
   end
 
   test "death effects use the player's color and cannons are present before launch" do
-    match = Match.demo(%{width: 78, height: 46})
+    match = Match.demo(%{width: 78, height: 46, explosion_radius: 2})
     layout = Render.layout(match.game.config)
     effects = [%Render.Explosion{id: 2, position: {39, 23}}]
-    items = Render.explosions(effects, layout, match.game.arena)
+    items = Render.explosions(effects, layout, match.game)
     assert items != []
     assert Enum.all?(items, fn {:rect, _, _, _, _, color} -> color == Render.color(2) end)
     assert Render.cannons(match.game, layout) != []
@@ -73,6 +73,18 @@ defmodule Badge.App.Beamwars.RenderTest do
         end)
 
       assert elem(visible, 5) == Render.color(id)
+    end
+  end
+
+  test "explosion pixels never hide uncleared trails outside the collision blast" do
+    match = Match.demo(%{width: 78, height: 46, explosion_radius: 2})
+    layout = Render.layout(match.game.config)
+    effect = %Render.Explosion{id: 2, position: {39, 23}, age: 5}
+
+    for {:rect, x, y, 1, 1, _} <- Render.explosions([effect], layout, match.game) do
+      dx = div(x - layout.x, layout.cell) - 39
+      dy = div(y - layout.y, layout.cell) - 23
+      assert dx * dx + dy * dy <= 4
     end
   end
 end

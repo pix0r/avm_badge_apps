@@ -200,7 +200,7 @@ defmodule Badge.App.Beamwars.Page do
 
   def render(state) do
     overlay(state) ++
-      Render.explosions(state.effects, state.layout, state.match.game.arena) ++
+      Render.explosions(state.effects, state.layout, state.match.game) ++
       hud(state) ++ cannons(state) ++ Render.scene(state.match.game, state.layout, state.frame)
   end
 

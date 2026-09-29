@@ -41,26 +41,34 @@ defmodule Badge.App.Beamwars.Render do
       frame(game.arena, layout) ++ grid(game.arena, layout) ++ [background(game.arena, layout)]
   end
 
-  def explosions(effects, layout, arena) do
+  def explosions(effects, layout, %State{} = game) do
+    arena = game.arena
+    blast_radius = game.config.explosion_radius
+
     Enum.flat_map(effects, fn effect ->
       {cx, cy} = effect.position
-      center = {min(max(cx, arena.left), arena.right), min(max(cy, arena.top), arena.bottom)}
-      {x, y} = point(center, layout)
-      radius = (effect.age + 1) * layout.cell
+      {x, y} = point(effect.position, layout)
+      radius = min(effect.age + 1, blast_radius) * layout.cell
       color = color(effect.id)
 
       for {dx, dy} <- [{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}],
-          distance <- 1..radius,
+          distance <- pixels(radius),
           px = x + dx * distance,
           py = y + dy * distance,
           px >= layout.x + arena.left * layout.cell,
           px < layout.x + (arena.right + 1) * layout.cell,
           py >= layout.y + arena.top * layout.cell,
-          py < layout.y + (arena.bottom + 1) * layout.cell do
+          py < layout.y + (arena.bottom + 1) * layout.cell,
+          cell_dx = div(px - layout.x, layout.cell) - cx,
+          cell_dy = div(py - layout.y, layout.cell) - cy,
+          cell_dx * cell_dx + cell_dy * cell_dy <= blast_radius * blast_radius do
         {:rect, px, py, 1, 1, color}
       end
     end)
   end
+
+  defp pixels(0), do: []
+  defp pixels(radius), do: 1..radius
 
   def cannons(game, layout) do
     Enum.flat_map(Game.living(game), fn player ->
