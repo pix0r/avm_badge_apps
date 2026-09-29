@@ -20,9 +20,17 @@ defmodule Badge.App.Beamwars.Bot.Profile do
 
     settings =
       Enum.reduce(options, defaults, fn {key, value}, settings ->
-        if not Map.has_key?(settings, key), do: raise(ArgumentError, "unknown AI parameter: #{inspect(key)}")
-        minimum = if key in [:decision_delay, :aggression, :caution, :space_weight, :runway_weight], do: 0, else: 1
-        if not is_integer(value) or value < minimum, do: raise(ArgumentError, "invalid AI parameter: #{inspect(key)}")
+        if not Map.has_key?(settings, key),
+          do: raise(ArgumentError, "unknown AI parameter: #{inspect(key)}")
+
+        minimum =
+          if key in [:decision_delay, :aggression, :caution, :space_weight, :runway_weight],
+            do: 0,
+            else: 1
+
+        if not is_integer(value) or value < minimum,
+          do: raise(ArgumentError, "invalid AI parameter: #{inspect(key)}")
+
         Map.put(settings, key, value)
       end)
 
@@ -44,10 +52,35 @@ defmodule Badge.App.Beamwars.Bot.Profile do
     }
   end
 
-  defp preset(:beginner), do: [search_limit: 48, reaction_ticks: 5, decision_delay: 2, aggression: 1, prediction_ticks: 3]
+  defp preset(:beginner),
+    do: [
+      search_limit: 48,
+      reaction_ticks: 5,
+      decision_delay: 2,
+      aggression: 1,
+      prediction_ticks: 3
+    ]
+
   defp preset(:intermediate), do: []
-  defp preset(:expert), do: [search_limit: 320, reaction_ticks: 2, decision_delay: 1, aggression: 6, prediction_ticks: 8]
-  defp preset(:pro), do: [search_limit: 640, reaction_ticks: 1, decision_delay: 0, aggression: 8, prediction_ticks: 10]
+
+  defp preset(:expert),
+    do: [
+      search_limit: 320,
+      reaction_ticks: 2,
+      decision_delay: 1,
+      aggression: 6,
+      prediction_ticks: 8
+    ]
+
+  defp preset(:pro),
+    do: [
+      search_limit: 640,
+      reaction_ticks: 1,
+      decision_delay: 0,
+      aggression: 8,
+      prediction_ticks: 10
+    ]
+
   defp preset(level), do: raise(ArgumentError, "unknown AI level: #{inspect(level)}")
 end
 
@@ -78,8 +111,9 @@ defmodule Badge.App.Beamwars.Bot do
     {memory.pending, %{memory | pending: nil, due_tick: nil}}
   end
 
-  def choose(%State{tick: tick}, _id, %__MODULE__{next_think_tick: next} = memory) when tick < next,
-    do: {nil, memory}
+  def choose(%State{tick: tick}, _id, %__MODULE__{next_think_tick: next} = memory)
+      when tick < next,
+      do: {nil, memory}
 
   def choose(%State{} = game, id, %__MODULE__{} = memory) do
     profile = memory.profile
@@ -155,7 +189,9 @@ defmodule Badge.App.Beamwars.Bot do
   end
 
   defp predict(position, _direction, 0), do: position
-  defp predict(position, direction, ticks), do: predict(Player.step(position, direction), direction, ticks - 1)
+
+  defp predict(position, direction, ticks),
+    do: predict(Player.step(position, direction), direction, ticks - 1)
 
   defp best([], nil), do: nil
   defp best([], {_score, turn}), do: turn
@@ -178,14 +214,19 @@ defmodule Badge.App.Beamwars.Bot do
     if Map.has_key?(seen, cell) or not free?(cell, arena, occupied) do
       reachable(rest, seen, arena, occupied, remaining)
     else
-      neighbors = for direction <- [:north, :east, :south, :west], do: Player.step(cell, direction)
+      neighbors =
+        for direction <- [:north, :east, :south, :west], do: Player.step(cell, direction)
+
       1 + reachable(neighbors ++ rest, Map.put(seen, cell, true), arena, occupied, remaining - 1)
     end
   end
 
   defp runway(cell, direction, arena, occupied, distance) do
     next = Player.step(cell, direction)
-    if free?(next, arena, occupied), do: runway(next, direction, arena, occupied, distance + 1), else: distance
+
+    if free?(next, arena, occupied),
+      do: runway(next, direction, arena, occupied, distance + 1),
+      else: distance
   end
 
   defp free?(cell, arena, occupied),

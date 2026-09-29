@@ -60,7 +60,11 @@ defmodule Badge.App.Beamwars.GameTest do
   end
 
   test "head swaps collide with existing heads" do
-    roster = [%{id: 1, position: {1, 1}, direction: :east}, %{id: 2, position: {2, 1}, direction: :west}]
+    roster = [
+      %{id: 1, position: {1, 1}, direction: :east},
+      %{id: 2, position: {2, 1}, direction: :west}
+    ]
+
     {:ok, game} = Game.new(%{width: 4, height: 4}, roster)
     {:ok, done, _} = Game.step(game, %{})
     assert done.status == :draw
@@ -109,7 +113,10 @@ defmodule Badge.App.Beamwars.GameTest do
     {:ok, game} =
       Game.new(
         %{width: 20, height: 20, shrink_after: :never},
-        [%{id: 1, position: {4, 4}, direction: :east}, %{id: 2, position: {15, 15}, direction: :west}]
+        [
+          %{id: 1, position: {4, 4}, direction: :east},
+          %{id: 2, position: {15, 15}, direction: :west}
+        ]
       )
 
     game =
@@ -126,7 +133,10 @@ defmodule Badge.App.Beamwars.GameTest do
     {:ok, game} =
       Game.new(
         %{width: 12, height: 12},
-        [%{id: 1, position: {2, 3}, direction: :east}, %{id: 2, position: {4, 2}, direction: :south}]
+        [
+          %{id: 1, position: {2, 3}, direction: :east},
+          %{id: 2, position: {4, 2}, direction: :south}
+        ]
       )
 
     {:ok, game, []} = Game.step(game, %{1 => :right})

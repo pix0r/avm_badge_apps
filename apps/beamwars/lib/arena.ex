@@ -15,7 +15,13 @@ defmodule Badge.App.Beamwars.Arena do
         }
 
   def new(%Config{} = config) do
-    %__MODULE__{left: 0, top: 0, right: config.width - 1, bottom: config.height - 1, next_shrink_tick: deadline(config.shrink_after)}
+    %__MODULE__{
+      left: 0,
+      top: 0,
+      right: config.width - 1,
+      bottom: config.height - 1,
+      next_shrink_tick: deadline(config.shrink_after)
+    }
     |> stop_if_minimal()
   end
 
@@ -27,8 +33,9 @@ defmodule Badge.App.Beamwars.Arena do
   @spec advance(t(), Config.t(), non_neg_integer()) :: t()
   def advance(%__MODULE__{next_shrink_tick: nil} = arena, _config, _tick), do: arena
 
-  def advance(%__MODULE__{next_shrink_tick: deadline} = arena, _config, tick) when tick < deadline,
-    do: arena
+  def advance(%__MODULE__{next_shrink_tick: deadline} = arena, _config, tick)
+      when tick < deadline,
+      do: arena
 
   def advance(arena, config, tick) do
     %{

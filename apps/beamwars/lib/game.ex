@@ -14,8 +14,11 @@ defmodule Badge.App.Beamwars.Game do
     with {:ok, config} <- Config.new(options),
          arena = Arena.new(config),
          {:ok, players} <- build_roster(roster, arena) do
-      occupied = Map.new(players, fn {id, player} -> {player.position, id} end)
-      {:ok, %State{config: config, arena: arena, players: players, occupied: occupied}}
+      occupied = players |> Enum.map(fn {id, player} -> {player.position, id} end) |> Map.new()
+      trails = players |> Enum.map(fn {id, player} -> {id, [player.position]} end) |> Map.new()
+
+      {:ok,
+       %State{config: config, arena: arena, players: players, occupied: occupied, trails: trails}}
     end
   end
 
@@ -34,21 +37,53 @@ defmodule Badge.App.Beamwars.Game do
     arena = Arena.advance(state.arena, state.config, tick)
 
     proposals =
-      Map.new(living(state), fn player ->
+      living(state)
+      |> Enum.map(fn player ->
         {player.id, Player.move(player, Map.get(inputs, player.id))}
       end)
+      |> Map.new()
 
     destinations =
       Enum.reduce(Map.values(proposals), %{}, fn player, counts ->
-        Map.update(counts, player.position, 1, &(&1 + 1))
+        Map.put(counts, player.position, Map.get(counts, player.position, 0) + 1)
       end)
 
     {players, occupied, crashes} =
-      Enum.reduce(ordered(proposals), {state.players, state.occupied, []}, fn {_id, proposed}, acc ->
+      Enum.reduce(ordered(proposals), {state.players, state.occupied, []}, fn {_id, proposed},
+                                                                              acc ->
         resolve(state, arena, proposed, destinations, acc)
       end)
 
-    next = %{state | tick: tick, arena: arena, players: players, occupied: occupied}
+    trails =
+      Enum.reduce(players, state.trails, fn
+        {id, %Player{alive: true, position: position}}, trails ->
+          Map.put(trails, id, [position | Map.get(trails, id, [])])
+
+        _, trails ->
+          trails
+      end)
+
+    occupied = clear_blasts(occupied, crashes, state.config.explosion_radius)
+
+    occupied =
+      Enum.reduce(players, occupied, fn
+        {id, %Player{alive: true, position: position}}, occupied ->
+          Map.put(occupied, position, id)
+
+        _, occupied ->
+          occupied
+      end)
+
+    next = %{
+      state
+      | tick: tick,
+        arena: arena,
+        players: players,
+        occupied: occupied,
+        trails: trails
+    }
+
+    next = cleanup(next)
     next = %{next | status: outcome(living(next))}
     events = contraction_events(state.arena, arena) ++ Enum.reverse(crashes)
     {:ok, next, events}
@@ -65,10 +100,52 @@ defmodule Badge.App.Beamwars.Game do
 
     if collision? do
       dead = %{original | alive: false, direction: proposed.direction}
-      {Map.put(players, dead.id, dead), occupied, [{:crashed, dead.id, proposed.position} | crashes]}
+
+      {Map.put(players, dead.id, dead), occupied,
+       [{:crashed, dead.id, proposed.position} | crashes]}
     else
-      {Map.put(players, proposed.id, proposed), Map.put(occupied, proposed.position, proposed.id), crashes}
+      {Map.put(players, proposed.id, proposed), Map.put(occupied, proposed.position, proposed.id),
+       crashes}
     end
+  end
+
+  @doc "Retracts dead beams by one configured chunk without advancing the round clock."
+  def cleanup(%State{config: %Config{retract_speed: 0}} = state), do: state
+
+  def cleanup(state) do
+    {occupied, trails} =
+      Enum.reduce(state.players, {state.occupied, state.trails}, fn
+        {id, %Player{alive: false}}, {occupied, trails} ->
+          {occupied, remaining} =
+            retract(Map.get(trails, id, []), occupied, id, state.config.retract_speed)
+
+          {occupied, Map.put(trails, id, remaining)}
+
+        _, acc ->
+          acc
+      end)
+
+    %{state | occupied: occupied, trails: trails}
+  end
+
+  defp retract(trail, occupied, _id, 0), do: {occupied, trail}
+  defp retract([], occupied, _id, _count), do: {occupied, []}
+
+  defp retract([cell | rest], occupied, id, count) do
+    occupied = if Map.get(occupied, cell) == id, do: Map.delete(occupied, cell), else: occupied
+    retract(rest, occupied, id, count - 1)
+  end
+
+  defp clear_blasts(occupied, _crashes, 0), do: occupied
+
+  defp clear_blasts(occupied, crashes, radius) do
+    Map.new(
+      Enum.reject(occupied, fn {{x, y}, _id} ->
+        Enum.any?(crashes, fn {:crashed, _, {cx, cy}} ->
+          (x - cx) * (x - cx) + (y - cy) * (y - cy) <= radius * radius
+        end)
+      end)
+    )
   end
 
   @doc "Living players, ordered by stable ID."

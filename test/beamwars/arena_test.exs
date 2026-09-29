@@ -37,7 +37,11 @@ defmodule Badge.App.Beamwars.ArenaTest do
   end
 
   test "a contracting wall eliminates a bike on the swept ring even if it turns inward" do
-    roster = [%{id: 1, position: {0, 4}, direction: :north}, %{id: 2, position: {5, 5}, direction: :east}]
+    roster = [
+      %{id: 1, position: {0, 4}, direction: :north},
+      %{id: 2, position: {5, 5}, direction: :east}
+    ]
+
     {:ok, game} = Game.new(%{width: 9, height: 9, shrink_after: 1}, roster)
     {:ok, next, events} = Game.step(game, %{1 => :right})
     assert next.arena.inset == 1
@@ -47,7 +51,11 @@ defmodule Badge.App.Beamwars.ArenaTest do
   end
 
   test "a move onto a newly removed ring crashes and trails stay occupied" do
-    roster = [%{id: 1, position: {1, 4}, direction: :west}, %{id: 2, position: {5, 5}, direction: :east}]
+    roster = [
+      %{id: 1, position: {1, 4}, direction: :west},
+      %{id: 2, position: {5, 5}, direction: :east}
+    ]
+
     {:ok, game} = Game.new(%{width: 9, height: 9, shrink_after: 1}, roster)
     {:ok, next, _} = Game.step(game, %{})
     assert next.status == {:winner, 2}
@@ -62,7 +70,10 @@ defmodule Badge.App.Beamwars.ArenaTest do
     {:ok, small} =
       Game.new(
         %{width: 3, height: 3, shrink_after: 1, shrink_every: 1, warning_ticks: 0},
-        [%{id: 1, position: {0, 0}, direction: :east}, %{id: 2, position: {2, 2}, direction: :west}]
+        [
+          %{id: 1, position: {0, 0}, direction: :east},
+          %{id: 2, position: {2, 2}, direction: :west}
+        ]
       )
 
     arena = Arena.advance(small.arena, small.config, 100)
@@ -72,7 +83,13 @@ defmodule Badge.App.Beamwars.ArenaTest do
   end
 
   test "invalid timing parameters and unknown configuration keys fail clearly" do
-    for options <- [%{step_ms: 0}, %{shrink_every: 0}, %{warning_ticks: -1}, %{shrink_after: -1}, %{widht: 9}] do
+    for options <- [
+          %{step_ms: 0},
+          %{shrink_every: 0},
+          %{warning_ticks: -1},
+          %{shrink_after: -1},
+          %{widht: 9}
+        ] do
       rules = Map.merge(%{width: 9, height: 9}, options)
       assert {:error, :invalid_rules} = Game.new(rules, roster())
     end

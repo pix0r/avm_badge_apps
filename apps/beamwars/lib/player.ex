@@ -6,7 +6,12 @@ defmodule Badge.App.Beamwars.Player do
   @type direction :: :north | :east | :south | :west
   @type position :: {integer(), integer()}
   @type turn :: :left | :right | nil
-  @type t :: %__MODULE__{id: integer(), position: position(), direction: direction(), alive: boolean()}
+  @type t :: %__MODULE__{
+          id: integer(),
+          position: position(),
+          direction: direction(),
+          alive: boolean()
+        }
 
   @spec new(map()) :: {:ok, t()} | {:error, :invalid_players}
   def new(%{id: id, position: {x, y} = position, direction: direction})

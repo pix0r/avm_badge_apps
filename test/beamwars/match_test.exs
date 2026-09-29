@@ -7,7 +7,10 @@ defmodule Badge.App.Beamwars.MatchTest do
     {:ok, game} =
       Game.new(
         %{width: 12, height: 10},
-        [%{id: 1, position: {11, 4}, direction: :east}, %{id: 2, position: {3, 7}, direction: :west}]
+        [
+          %{id: 1, position: {11, 4}, direction: :east},
+          %{id: 2, position: {3, 7}, direction: :west}
+        ]
       )
 
     {turn, _} = Bot.choose(game, 1, Bot.init(1, decision_delay: 0, reaction_ticks: 1))
@@ -68,7 +71,7 @@ defmodule Badge.App.Beamwars.MatchTest do
 
     match = %Match{game: game, controllers: %{1 => :human, 2 => :human}}
     result = Match.tick(match)
-    assert result.scores == %{2 => 1}
+    assert result.scores == %{2 => 25}
     assert Match.tick(result).scores == result.scores
   end
 
