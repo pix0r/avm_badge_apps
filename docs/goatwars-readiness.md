@@ -121,3 +121,14 @@ Measure frame time and internal RAM with radio services active; soak dense play.
 Confirm failed app execution returns Home. Exercise interrupted writes and supply
 changes only with recovery firmware/cable available. Resolve the Store SSL crash
 before treating public HTTPS installation as dependable.
+
+## USB bench build
+
+The worktrees now live in the persistent, ignored directory
+`avm_badge_apps/.worktrees/goatwars-hardware/`, with apps and selected firmware
+next to each other. [The USB installer](goatwars-usb.md) packages GoatWars with
+the assets and adds its page to the grid for offline testing. A complete flash
+backup was read; this board matches the released VM, boot library, bootloader
+and partition table. No test firmware was flashed and physical results remain
+pending. Tests added for the installer passed before device testing was stopped;
+the final archive-edit regression suite rerun is deferred.

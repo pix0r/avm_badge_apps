@@ -201,3 +201,9 @@ mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- elixir scripts/goatwars_headless
 
 See [resource testing notes](../../docs/goatwars-resources.md) for the Snake hardware
 report, measured rendering risks, native AtomVM heap caps and ESP32-S3 QEMU options.
+
+## Offline USB installation
+
+Use [the repeatable installer and device test steps](../../docs/goatwars-usb.md).
+`./scripts/goatwars_install.sh --build-only` prepares images without a board;
+`./scripts/goatwars_install.sh` builds and flashes the offline game.
