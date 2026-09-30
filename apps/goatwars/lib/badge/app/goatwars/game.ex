@@ -136,14 +136,20 @@ defmodule Badge.App.Goatwars.Game do
 
   defp clear_blasts(occupied, _crashes, 0), do: occupied
 
+  defp clear_blasts(occupied, [], _radius), do: occupied
+
   defp clear_blasts(occupied, crashes, radius) do
-    Map.new(
-      Enum.reject(occupied, fn {{x, y}, _id} ->
-        Enum.any?(crashes, fn {:crashed, _, {cx, cy}} ->
-          (x - cx) * (x - cx) + (y - cy) * (y - cy) <= radius * radius
+    offsets = :lists.seq(-radius, radius)
+
+    Enum.reduce(crashes, occupied, fn {:crashed, _, {cx, cy}}, occupied ->
+      Enum.reduce(offsets, occupied, fn dx, occupied ->
+        Enum.reduce(offsets, occupied, fn dy, occupied ->
+          if dx * dx + dy * dy <= radius * radius,
+            do: Map.delete(occupied, {cx + dx, cy + dy}),
+            else: occupied
         end)
       end)
-    )
+    end)
   end
 
   @doc "Living players, ordered by stable ID."

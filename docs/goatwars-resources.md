@@ -97,3 +97,22 @@ References:
 Current measured native results and readiness limits are recorded in
 [the readiness report](goatwars-readiness.md); earlier estimates here are not
 physical-device measurements.
+
+## October 1: physical lag report
+
+The first USB bench run on hardware was severely sluggish, with irregular waits
+of several seconds between movement ticks. This invalidates any interpretation
+of native readiness as evidence of physical frame-rate adequacy.
+
+Two costs were removed: the badge now uses a three-choice local obstacle
+controller, and explosion cleanup no longer scans/rebuilds every occupied cell
+on every tick. Empty crash lists return immediately; actual blasts visit their
+local disk. Host reduction-budget regressions caught both dense-board paths
+before their fixes; existing explosion and deterministic replay cases still pass.
+
+A controlled native badge-v1 benchmark compared 100 calls with the same inputs
+and confirmed identical old/new physics output. On desktop ARM64, dense updates
+changed from 290,269 to 963 microseconds/call and Pro search decisions from 793
+to 6 microseconds/call for local avoidance. These are CPU comparisons, not ESP32
+frame times. Full display rendering and physical responsiveness still require
+the user's retest after installing the new build.

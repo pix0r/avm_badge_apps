@@ -2,6 +2,25 @@ defmodule Badge.App.Goatwars.PageTest do
   use ExUnit.Case, async: true
   alias Badge.App.Goatwars.{Match, Page}
 
+  test "badge opponents stay simple across rematches, settings and the B shortcut" do
+    state = Page.init(countdown_ms: 0)
+    assert_simple(state)
+    {:ok, restarted} = Page.handle_key({:char, ?r}, state)
+    assert_simple(restarted)
+    {:ok, settings} = Page.handle_key({:char, ?s}, state)
+    {:ok, settings} = Page.handle_key({:move, :right}, settings)
+    {:ok, applied} = Page.handle_key(:enter, settings)
+    assert_simple(applied)
+    {:ok, human} = Page.handle_key({:move, :left}, state)
+    {:ok, bots} = Page.handle_key({:char, ?b}, human)
+    assert_simple(bots)
+  end
+
+  defp assert_simple(state) do
+    for {_, {module, _memory}} <- state.match.controllers,
+        do: assert(module == Badge.App.Goatwars.SimpleBot)
+  end
+
   test "badge play retains no replay history across ticks and rematches" do
     state = Page.init(countdown_ms: 0)
     state = Enum.reduce(0..30, state, fn tick, state -> Page.advance(state, tick * 100) end)
@@ -86,13 +105,20 @@ defmodule Badge.App.Goatwars.PageTest do
     assert started.launch_remaining == 3000
   end
 
-  test "applying a changed AI level does not retain the old pilot profile" do
-    state = Page.init(countdown_ms: 0)
+  test "badge settings offer only human, simple AI and inactive" do
+    state = Page.init(countdown_ms: 0, profiles: %{1 => :human})
     {:ok, settings} = Page.handle_key({:char, ?s}, state)
     {:ok, settings} = Page.handle_key({:move, :right}, settings)
-    {:ok, game} = Page.handle_key({:edit, :newline}, settings)
-    {_, pilot} = game.match.controllers[1]
-    assert pilot.profile == Badge.App.Goatwars.Bot.Profile.new(:expert)
+    assert settings.draft.slots[1].mode == :intermediate
+    labels = for {:text, _, _, _, _, _, label} <- Page.render(settings), do: label
+    assert "AI Simple" in labels
+    {:ok, game} = Page.handle_key(:enter, settings)
+    assert_simple(game)
+    {:ok, settings} = Page.handle_key({:char, ?s}, game)
+    {:ok, settings} = Page.handle_key({:move, :right}, settings)
+    assert settings.draft.slots[1].mode == :inactive
+    {:ok, settings} = Page.handle_key({:move, :right}, settings)
+    assert settings.draft.slots[1].mode == :human
   end
 
   test "timing respects configured speed and pause freezes the match" do

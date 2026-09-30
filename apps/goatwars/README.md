@@ -35,8 +35,8 @@ Exit the simulator's IEx with Ctrl-C, then `a`.
 | B | Return all riders to default AI |
 | Esc, then F1 | Home, then reopen GoatWars |
 
-In settings, Up/Down selects a player; Left/Right cycles Human, AI Novice,
-Intermediate, Expert, Pro and Inactive. C cycles left/right key presets; choosing
+In settings, Up/Down selects a player; Left/Right cycles Human, AI Simple and
+Inactive. C cycles left/right key presets; choosing
 an occupied preset swaps assignments. R toggles beam retraction. Enter applies
 settings and starts a new countdown. At least two slots must be active. Settings
 suspend the match; S cancels without applying changes.
@@ -83,6 +83,11 @@ formula and draw behavior are unverified. The supplied screenshots support the s
 are adaptation choices, not claims of exact emulation.
 
 ## AI and controllers
+
+The badge page uses `SimpleBot`: continue straight when clear, otherwise try
+left and right once. It performs no search, prediction or pursuit. Rematches,
+settings and B all retain this local policy. Advanced presets below apply to
+headless `Match.demo`, not to badge play.
 
 Every rider has a controller: `:human` or `{module, memory}`. Modules implement
 `Controller.init/1` and `choose(game, player_id, memory) -> {turn_or_nil, memory}`.
@@ -153,15 +158,15 @@ match = Match.demo(%{width: 78, height: 46}, 42, %{
 })
 result = Match.run(match, 78 * 46 * 5)
 
-# Configurable badge shell; AI profiles survive rematches:
-Page.init(rules: %{width: 78, height: 46, step_ms: 100}, profiles: %{1 => :expert})
+# Configurable badge shell with a human rider:
+Page.init(rules: %{width: 78, height: 46, step_ms: 100}, profiles: %{1 => :human})
 ```
 
 In the running simulator IEx, apply that page setup to the live demo:
 
 ```elixir
 :sys.replace_state(Badge.UI, fn ui ->
-  %{ui | page_state: Page.init(profiles: %{1 => :beginner, 2 => :expert}), dirty: true}
+  %{ui | page_state: Page.init(profiles: %{1 => :human, 4 => :inactive}), dirty: true}
 end)
 ```
 

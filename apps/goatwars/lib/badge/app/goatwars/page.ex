@@ -1,7 +1,7 @@
 defmodule Badge.App.Goatwars.Page do
   @moduledoc "GoatWars badge adapter. S opens player settings; Space pauses; R rematches."
   use Badge.Page
-  alias Badge.App.Goatwars.{Bot, Game, Match, Render, Setup}
+  alias Badge.App.Goatwars.{Game, Match, Render, Setup, SimpleBot}
   alias __MODULE__.State
 
   @impl true
@@ -14,7 +14,8 @@ defmodule Badge.App.Goatwars.Page do
       Keyword.get(options, :rules, %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8})
 
     setup = Setup.new(Keyword.get(options, :profiles, %{}))
-    match = Match.demo(rules, Keyword.get(options, :seed, 1), Setup.controllers(setup), record_replay: false)
+    seed = Keyword.get(options, :seed, 1)
+    match = Match.demo(rules, seed, controllers(setup, seed), record_replay: false)
     setup = %{setup | retract: Map.fetch!(Map.fetch!(Map.fetch!(match, :game), :config), :retract_speed) > 0}
     countdown = Keyword.get(options, :countdown_ms, 3000)
 
@@ -39,7 +40,7 @@ defmodule Badge.App.Goatwars.Page do
   def handle_key({:char, char}, state) when char == ?b or char == ?B do
     match =
       Enum.reduce(Map.keys(Map.fetch!(Map.fetch!(state, :match), :controllers)), Map.fetch!(state, :match), fn id, match ->
-        Match.control(match, id, {Bot, Bot.init(Map.fetch!(state, :round) * 31 + id * 13)})
+        Match.control(match, id, {SimpleBot, SimpleBot.init(Map.fetch!(state, :round) * 31 + id * 13)})
       end)
 
     setup =
@@ -67,7 +68,9 @@ defmodule Badge.App.Goatwars.Page do
 
   defp settings_key({:move, turn}, state) when turn == :left or turn == :right do
     delta = if turn == :left, do: -1, else: 1
-    {:ok, %{state | draft: Setup.cycle_mode(Map.fetch!(state, :draft), Map.fetch!(state, :selected), delta)}}
+
+    {:ok,
+     %{state | draft: Setup.cycle_mode(Map.fetch!(state, :draft), Map.fetch!(state, :selected), delta, [:human, :intermediate, :inactive])}}
   end
 
   defp settings_key({:char, ?c}, state),
@@ -155,8 +158,8 @@ defmodule Badge.App.Goatwars.Page do
           )
     }
 
-    controllers = Setup.controllers(Map.fetch!(state, :setup))
-    match = Match.demo(config, Map.fetch!(state, :round) + 1, controllers, record_replay: false)
+    seed = Map.fetch!(state, :round) + 1
+    match = Match.demo(config, seed, controllers(Map.fetch!(state, :setup), seed), record_replay: false)
 
     %{
       state
@@ -170,6 +173,16 @@ defmodule Badge.App.Goatwars.Page do
         effects: [],
         paused: false
     }
+  end
+
+  defp controllers(setup, seed) do
+    setup
+    |> Setup.controllers()
+    |> Enum.map(fn
+      {id, mode} when mode == :human or mode == :inactive -> {id, mode}
+      {id, mode} -> {id, {SimpleBot, SimpleBot.init(seed * 31 + id * 13, mode)}}
+    end)
+    |> Map.new()
   end
 
   @impl true
@@ -236,7 +249,7 @@ defmodule Badge.App.Goatwars.Page do
         marker = if id == Map.fetch!(state, :selected), do: ">", else: " "
 
         text(8, 57 + (id - 1) * 27, marker <> "P" <> int(id), 0xFFFFFF) ++
-          text(48, 57 + (id - 1) * 27, Setup.label(Map.fetch!(slot, :mode)), 0xFFFFFF) ++
+          text(48, 57 + (id - 1) * 27, mode_label(Map.fetch!(slot, :mode)), 0xFFFFFF) ++
           text(268, 57 + (id - 1) * 27, Setup.key_label(Map.fetch!(slot, :keys)), 0xFFFFFF) ++
           [{:rect, 8, 55 + (id - 1) * 27, 32, 20, Render.color(id)}]
       end)
@@ -250,6 +263,10 @@ defmodule Badge.App.Goatwars.Page do
       text(8, 217, hint, 0xFFFFFF) ++
       [{:rect, 0, 24, 320, 216, 0x000020}]
   end
+
+  defp mode_label(:human), do: "Human"
+  defp mode_label(:inactive), do: "Inactive"
+  defp mode_label(_), do: "AI Simple"
 
   defp text(x, y, label, color), do: [{:text, x, y, :default16px, color, :transparent, label}]
   defp int(number), do: :erlang.integer_to_binary(number)

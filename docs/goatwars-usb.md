@@ -81,6 +81,6 @@ known firmware risk; this offline test does not establish its reliability.
 
 When ready to resume verification, run `mix test` and
 `python3 -m unittest discover -s test/scripts -v` in this worktree. The latter
-uses fake tools and never accesses hardware. The final archive-edit regression
-was added after a real build exposed a legacy pack inspector issue; its host
-suite rerun was deferred when device testing was stopped.
+uses fake tools and never accesses hardware. The full host suite, including the archive-edit regression, passed when
+verification resumed on October 1. The badge now uses a simple obstacle-avoidance
+controller; its settings offer Human, AI Simple and Inactive.

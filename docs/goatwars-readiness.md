@@ -18,12 +18,12 @@ known unresolved hardware risk.
 
 | Gate | Result |
 | --- | --- |
-| Apps host suite | 128 tests, zero failures |
+| Apps host suite | 138 tests, zero failures |
 | Selected firmware suite | 1,408 tests, zero failures; two asset-regeneration tests excluded |
 | Native badge-v1 execution | 20 seeded matches plus countdown, pause, settings, restart and render assertions pass |
-| Exact VM compatibility | All imports and 53 instruction types in 17 game modules resolve against pinned VM sources/libraries |
+| Exact VM compatibility | All imports and 53 instruction types in 18 game modules resolve against pinned VM sources/libraries |
 | Actual released boot library | Real app pack loads dynamically; imported library exports and page lifecycle pass on native AtomVM with released boot.avm |
-| Store packaging | 48,164 bytes, under 65,536-byte limit by 17,372 bytes; native pack and host pack tests pass |
+| Store packaging | 50,296 bytes, under 65,536-byte limit by 15,240 bytes; native pack and host pack tests pass |
 | Store authentication | Disposable-key signed pack verifies; tampering is rejected; no production key or publishing used |
 | Real firmware UI | Three integration scenarios pass: empty NVS launch/key routing, retained installation with offline reload failure, crashed game recovery to Home |
 | Resource stress | Four AI profiles and 25 repeated entries pass at all three heap budgets; dense render succeeds at highest budget and reports expected OOM at lower budgets |
@@ -69,7 +69,7 @@ it does not exercise an actual HTTPS transfer or physical flash wear/power loss.
 ## Artifact identity and first-device installation
 
 Game pack SHA-256:
-`e39d07cc8c4fbd7a439846cee0956f919318bd3c96064234f88fed6c567446d5`.
+`6a15d099968db5b37bd8ec24e2bf1e9ad5fd02adf8aa7d533c50062f68659f28`.
 Released boot.avm is 524,880 bytes, SHA-256
 `652d98edf174ea7ec650b9e573a4cb479fbf99fc7d017cddfdebe4fd97f2adbf`.
 Release checksums verify and its seven partition rows match source exactly.
@@ -132,3 +132,15 @@ backup was read; this board matches the released VM, boot library, bootloader
 and partition table. No test firmware was flashed and physical results remain
 pending. Tests added for the installer passed before device testing was stopped;
 the final archive-edit regression suite rerun is deferred.
+
+## October 1 performance correction
+
+The first physical run exhibited severe, irregular lag. Badge opponents now use
+`SimpleBot`, including settings, B and rematches. A second fix removes complete
+trail-map scans from ordinary ticks and makes explosion clearing local. Advanced
+search remains available only to headless Match experiments. The updated host
+suite passes 138 tests; three firmware UI cases and six installer tests pass.
+The formerly deferred archive-edit regression now passes in the full suite.
+See [resource measurements](goatwars-resources.md) for the controlled native
+comparison. The new physical test remains pending; the script was rebuilt in
+build-only mode and no device was reflashed by this chat.

@@ -24,8 +24,8 @@ defmodule Badge.App.Goatwars.Setup do
   def mode(setup, id, mode),
     do: %{setup | slots: Map.put(Map.fetch!(setup, :slots), id, %{Map.fetch!(Map.fetch!(setup, :slots), id) | mode: mode})}
 
-  def cycle_mode(setup, id, delta),
-    do: mode(setup, id, cycle(@modes, Map.fetch!(Map.fetch!(setup, :slots)[id], :mode), delta))
+  def cycle_mode(setup, id, delta, modes \\ @modes),
+    do: mode(setup, id, cycle(modes, Map.fetch!(Map.fetch!(setup, :slots)[id], :mode), delta))
 
   def cycle_keys(setup, id), do: keys(setup, id, cycle(@keys, Map.fetch!(Map.fetch!(setup, :slots)[id], :keys), 1))
 

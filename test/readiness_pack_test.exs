@@ -4,7 +4,7 @@ defmodule GoatwarsPackReadinessTest do
 
   test "the complete GoatWars pack fits the badge and uses its namespace only" do
     beams = Pack.beams!(Mix.Project.compile_path(), "goatwars")
-    assert length(beams) == 17
+    assert length(beams) == 18
     path = Path.join(System.tmp_dir!(), "goatwars_pack_#{System.unique_integer([:positive])}.avm")
     on_exit(fn -> File.rm(path) end)
     assert :ok = ExAtomVM.PackBEAM.make_avm(Enum.map(beams, &{&1, :beam}), path)
