@@ -16,24 +16,24 @@ defmodule Badge.App.Goatwars.Setup do
   end
 
   def controllers(setup),
-    do: setup.slots |> Enum.map(fn {id, slot} -> {id, slot.mode} end) |> Map.new()
+    do: Map.fetch!(setup, :slots) |> Enum.map(fn {id, slot} -> {id, Map.fetch!(slot, :mode)} end) |> Map.new()
 
   def valid?(setup),
-    do: length(Enum.filter(Map.values(setup.slots), &(&1.mode != :inactive))) >= 2
+    do: length(Enum.filter(Map.values(Map.fetch!(setup, :slots)), &(Map.fetch!(&1, :mode) != :inactive))) >= 2
 
   def mode(setup, id, mode),
-    do: %{setup | slots: Map.put(setup.slots, id, %{Map.fetch!(setup.slots, id) | mode: mode})}
+    do: %{setup | slots: Map.put(Map.fetch!(setup, :slots), id, %{Map.fetch!(Map.fetch!(setup, :slots), id) | mode: mode})}
 
   def cycle_mode(setup, id, delta),
-    do: mode(setup, id, cycle(@modes, setup.slots[id].mode, delta))
+    do: mode(setup, id, cycle(@modes, Map.fetch!(Map.fetch!(setup, :slots)[id], :mode), delta))
 
-  def cycle_keys(setup, id), do: keys(setup, id, cycle(@keys, setup.slots[id].keys, 1))
+  def cycle_keys(setup, id), do: keys(setup, id, cycle(@keys, Map.fetch!(Map.fetch!(setup, :slots)[id], :keys), 1))
 
   def keys(setup, id, preset) do
-    previous = setup.slots[id].keys
+    previous = Map.fetch!(Map.fetch!(setup, :slots)[id], :keys)
 
     slots =
-      setup.slots
+      Map.fetch!(setup, :slots)
       |> Enum.map(fn
         {^id, slot} -> {id, %{slot | keys: preset}}
         {other, %{keys: ^preset} = slot} -> {other, %{slot | keys: previous}}
@@ -45,9 +45,9 @@ defmodule Badge.App.Goatwars.Setup do
   end
 
   def binding(setup, event) do
-    Enum.reduce(setup.slots, nil, fn {id, slot}, found ->
-      turn = key_turn(slot.keys, event)
-      if turn != nil and slot.mode != :inactive, do: {id, turn}, else: found
+    Enum.reduce(Map.fetch!(setup, :slots), nil, fn {id, slot}, found ->
+      turn = key_turn(Map.fetch!(slot, :keys), event)
+      if turn != nil and Map.fetch!(slot, :mode) != :inactive, do: {id, turn}, else: found
     end)
   end
 

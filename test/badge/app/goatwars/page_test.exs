@@ -2,6 +2,15 @@ defmodule Badge.App.Goatwars.PageTest do
   use ExUnit.Case, async: true
   alias Badge.App.Goatwars.{Match, Page}
 
+  test "badge play retains no replay history across ticks and rematches" do
+    state = Page.init(countdown_ms: 0)
+    state = Enum.reduce(0..30, state, fn tick, state -> Page.advance(state, tick * 100) end)
+    assert state.match.replay == []
+    {:ok, state} = Page.handle_key({:char, ?r}, state)
+    state = state |> Page.advance(4000) |> Page.advance(7000)
+    assert state.match.replay == []
+  end
+
   test "the badge page owns plain-map demo state and produces content" do
     state = Page.init(countdown_ms: 0)
     refute is_struct(state)

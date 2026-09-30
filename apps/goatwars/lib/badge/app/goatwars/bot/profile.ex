@@ -39,7 +39,7 @@ defmodule Badge.App.Goatwars.Bot.Profile do
         Map.put(settings, key, value)
       end)
 
-    if settings.decision_delay >= settings.reaction_ticks,
+    if Map.fetch!(settings, :decision_delay) >= Map.fetch!(settings, :reaction_ticks),
       do: raise(ArgumentError, "decision_delay must be less than reaction_ticks")
 
     settings

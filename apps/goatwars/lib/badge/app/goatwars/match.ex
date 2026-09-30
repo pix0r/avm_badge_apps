@@ -21,7 +21,7 @@ defmodule Badge.App.Goatwars.Match do
       controllers: controllers,
       scores: %{},
       totals: %{},
-      bonus: game.config.bonus_start,
+      bonus: Map.fetch!(Map.fetch!(game, :config), :bonus_start),
       awarded_bonus: nil,
       pending: %{},
       replay: [],
@@ -33,8 +33,8 @@ defmodule Badge.App.Goatwars.Match do
   @doc "Creates a deterministic four-bot match with edge-midpoint spawns."
   def demo(rules \\ %{width: 64, height: 36}, seed \\ 1, profiles \\ %{}, options \\ []) do
     {:ok, config} = Config.new(rules)
-    w = config.width
-    h = config.height
+    w = Map.fetch!(config, :width)
+    h = Map.fetch!(config, :height)
 
     roster = [
       %{id: 1, position: {div(w, 2), h - 1}, direction: :north},
@@ -43,12 +43,14 @@ defmodule Badge.App.Goatwars.Match do
       %{id: 4, position: {w - 1, div(h, 2)}, direction: :west}
     ]
 
-    roster = Enum.reject(roster, &(Map.get(profiles, &1.id) == :inactive))
+    roster = Enum.reject(roster, &(Map.get(profiles, Map.fetch!(&1, :id)) == :inactive))
     {:ok, game} = Game.new(config, roster)
 
     controllers =
       roster
-      |> Enum.map(&{&1.id, controller(Map.get(profiles, &1.id, :intermediate), seed * 31 + &1.id * 13)})
+      |> Enum.map(
+        &{Map.fetch!(&1, :id), controller(Map.get(profiles, Map.fetch!(&1, :id), :intermediate), seed * 31 + Map.fetch!(&1, :id) * 13)}
+      )
       |> Map.new()
 
     new(game, controllers, options)
@@ -60,19 +62,19 @@ defmodule Badge.App.Goatwars.Match do
 
   @doc "Switches ownership and discards any old owner's pending turn."
   def control(match, id, controller) do
-    _player = Map.fetch!(match.game.players, id)
+    _player = Map.fetch!(Map.fetch!(Map.fetch!(match, :game), :players), id)
 
     %{
       match
-      | controllers: Map.put(match.controllers, id, controller),
-        pending: Map.delete(match.pending, id)
+      | controllers: Map.put(Map.fetch!(match, :controllers), id, controller),
+        pending: Map.delete(Map.fetch!(match, :pending), id)
     }
   end
 
   @doc "Queues a human turn for the next tick; the last turn before the tick wins."
   def command(match, id, turn) when turn == :left or turn == :right do
-    case {Map.get(match.controllers, id), Map.get(match.game.players, id)} do
-      {:human, %{alive: true}} -> %{match | pending: Map.put(match.pending, id, turn)}
+    case {Map.get(Map.fetch!(match, :controllers), id), Map.get(Map.fetch!(Map.fetch!(match, :game), :players), id)} do
+      {:human, %{alive: true}} -> %{match | pending: Map.put(Map.fetch!(match, :pending), id, turn)}
       _ -> match
     end
   end
@@ -82,21 +84,29 @@ defmodule Badge.App.Goatwars.Match do
 
   def tick(match) do
     {turns, controllers} =
-      Enum.reduce(Game.living(match.game), {%{}, match.controllers}, fn player, acc ->
-        choose(match, player.id, acc)
+      Enum.reduce(Game.living(Map.fetch!(match, :game)), {%{}, Map.fetch!(match, :controllers)}, fn player, acc ->
+        choose(match, Map.fetch!(player, :id), acc)
       end)
 
-    {:ok, game, events} = Game.step(match.game, turns)
+    {:ok, game, events} = Game.step(Map.fetch!(match, :game), turns)
 
     scores =
-      Enum.reduce(Game.living(game), match.scores, fn player, scores ->
-        Map.put(scores, player.id, Map.get(scores, player.id, 0) + game.config.points_per_tick)
+      Enum.reduce(Game.living(game), Map.fetch!(match, :scores), fn player, scores ->
+        Map.put(
+          scores,
+          Map.fetch!(player, :id),
+          Map.get(scores, Map.fetch!(player, :id), 0) + Map.fetch!(Map.fetch!(game, :config), :points_per_tick)
+        )
       end)
 
-    bonus = max(game.config.bonus_start - game.tick * game.config.bonus_decay, 0)
+    bonus =
+      max(
+        Map.fetch!(Map.fetch!(game, :config), :bonus_start) - Map.fetch!(game, :tick) * Map.fetch!(Map.fetch!(game, :config), :bonus_decay),
+        0
+      )
 
     awarded_bonus =
-      case game.status do
+      case Map.fetch!(game, :status) do
         {:winner, id} -> {id, bonus}
         _ -> nil
       end
@@ -117,7 +127,7 @@ defmodule Badge.App.Goatwars.Match do
         controllers: controllers,
         pending: %{},
         events: events,
-        replay: if(match.record_replay, do: [turns | match.replay], else: [])
+        replay: if(Map.fetch!(match, :record_replay), do: [turns | Map.fetch!(match, :replay)], else: [])
     }
   end
 
@@ -134,10 +144,10 @@ defmodule Badge.App.Goatwars.Match do
     {turn, controller} =
       case Map.fetch!(controllers, id) do
         :human ->
-          {Map.get(match.pending, id), :human}
+          {Map.get(Map.fetch!(match, :pending), id), :human}
 
         {module, memory} ->
-          {turn, memory} = module.choose(match.game, id, memory)
+          {turn, memory} = module.choose(Map.fetch!(match, :game), id, memory)
           {turn, {module, memory}}
       end
 

@@ -14,8 +14,8 @@ defmodule Badge.App.Goatwars.Game do
     with {:ok, config} <- Config.new(options),
          arena = Arena.new(config),
          {:ok, players} <- build_roster(roster, arena) do
-      occupied = players |> Enum.map(fn {id, player} -> {player.position, id} end) |> Map.new()
-      trails = players |> Enum.map(fn {id, player} -> {id, [player.position]} end) |> Map.new()
+      occupied = players |> Enum.map(fn {id, player} -> {Map.fetch!(player, :position), id} end) |> Map.new()
+      trails = players |> Enum.map(fn {id, player} -> {id, [Map.fetch!(player, :position)]} end) |> Map.new()
 
       {:ok, State.new(%{config: config, arena: arena, players: players, occupied: occupied, trails: trails})}
     end
@@ -23,7 +23,7 @@ defmodule Badge.App.Goatwars.Game do
 
   @spec step(State.t(), inputs()) :: {:ok, State.t(), [event()]} | {:error, :invalid_inputs}
   def step(%{players: _, config: _} = state, inputs) do
-    with :ok <- validate_inputs(inputs, state.players) do
+    with :ok <- validate_inputs(inputs, Map.fetch!(state, :players)) do
       advance(state, inputs)
     end
   end
@@ -32,28 +32,28 @@ defmodule Badge.App.Goatwars.Game do
     do: {:ok, state, []}
 
   defp advance(state, inputs) do
-    tick = state.tick + 1
-    arena = Arena.advance(state.arena, state.config, tick)
+    tick = Map.fetch!(state, :tick) + 1
+    arena = Arena.advance(Map.fetch!(state, :arena), Map.fetch!(state, :config), tick)
 
     proposals =
       living(state)
       |> Enum.map(fn player ->
-        {player.id, Player.move(player, Map.get(inputs, player.id))}
+        {Map.fetch!(player, :id), Player.move(player, Map.get(inputs, Map.fetch!(player, :id)))}
       end)
       |> Map.new()
 
     destinations =
       Enum.reduce(Map.values(proposals), %{}, fn player, counts ->
-        Map.put(counts, player.position, Map.get(counts, player.position, 0) + 1)
+        Map.put(counts, Map.fetch!(player, :position), Map.get(counts, Map.fetch!(player, :position), 0) + 1)
       end)
 
     {players, occupied, crashes} =
-      Enum.reduce(ordered(proposals), {state.players, state.occupied, []}, fn {_id, proposed}, acc ->
+      Enum.reduce(ordered(proposals), {Map.fetch!(state, :players), Map.fetch!(state, :occupied), []}, fn {_id, proposed}, acc ->
         resolve(state, arena, proposed, destinations, acc)
       end)
 
     trails =
-      Enum.reduce(players, state.trails, fn
+      Enum.reduce(players, Map.fetch!(state, :trails), fn
         {id, %{alive: true, position: position}}, trails ->
           Map.put(trails, id, [position | Map.get(trails, id, [])])
 
@@ -61,7 +61,7 @@ defmodule Badge.App.Goatwars.Game do
           trails
       end)
 
-    occupied = clear_blasts(occupied, crashes, state.config.explosion_radius)
+    occupied = clear_blasts(occupied, crashes, Map.fetch!(Map.fetch!(state, :config), :explosion_radius))
 
     occupied =
       Enum.reduce(players, occupied, fn
@@ -83,25 +83,27 @@ defmodule Badge.App.Goatwars.Game do
 
     next = cleanup(next)
     next = %{next | status: outcome(living(next))}
-    events = contraction_events(state.arena, arena) ++ Enum.reverse(crashes)
+    events = contraction_events(Map.fetch!(state, :arena), arena) ++ Enum.reverse(crashes)
     {:ok, next, events}
   end
 
   defp resolve(state, arena, proposed, destinations, {players, occupied, crashes}) do
-    original = Map.fetch!(state.players, proposed.id)
+    original = Map.fetch!(Map.fetch!(state, :players), Map.fetch!(proposed, :id))
 
     collision? =
-      not Arena.contains?(arena, original.position) or
-        not Arena.contains?(arena, proposed.position) or
-        Map.has_key?(state.occupied, proposed.position) or
-        Map.fetch!(destinations, proposed.position) > 1
+      not Arena.contains?(arena, Map.fetch!(original, :position)) or
+        not Arena.contains?(arena, Map.fetch!(proposed, :position)) or
+        Map.has_key?(Map.fetch!(state, :occupied), Map.fetch!(proposed, :position)) or
+        Map.fetch!(destinations, Map.fetch!(proposed, :position)) > 1
 
     if collision? do
-      dead = %{original | alive: false, direction: proposed.direction}
+      dead = %{original | alive: false, direction: Map.fetch!(proposed, :direction)}
 
-      {Map.put(players, dead.id, dead), occupied, [{:crashed, dead.id, proposed.position} | crashes]}
+      {Map.put(players, Map.fetch!(dead, :id), dead), occupied,
+       [{:crashed, Map.fetch!(dead, :id), Map.fetch!(proposed, :position)} | crashes]}
     else
-      {Map.put(players, proposed.id, proposed), Map.put(occupied, proposed.position, proposed.id), crashes}
+      {Map.put(players, Map.fetch!(proposed, :id), proposed), Map.put(occupied, Map.fetch!(proposed, :position), Map.fetch!(proposed, :id)),
+       crashes}
     end
   end
 
@@ -110,10 +112,10 @@ defmodule Badge.App.Goatwars.Game do
 
   def cleanup(state) do
     {occupied, trails} =
-      Enum.reduce(state.players, {state.occupied, state.trails}, fn
+      Enum.reduce(Map.fetch!(state, :players), {Map.fetch!(state, :occupied), Map.fetch!(state, :trails)}, fn
         {id, %{alive: false}}, {occupied, trails} ->
           {occupied, remaining} =
-            retract(Map.get(trails, id, []), occupied, id, state.config.retract_speed)
+            retract(Map.get(trails, id, []), occupied, id, Map.fetch!(Map.fetch!(state, :config), :retract_speed))
 
           {occupied, Map.put(trails, id, remaining)}
 
@@ -159,10 +161,10 @@ defmodule Badge.App.Goatwars.Game do
 
   defp build_players([entry | rest], arena, players) do
     with {:ok, player} <- Player.new(entry),
-         true <- Arena.contains?(arena, player.position),
-         false <- Map.has_key?(players, player.id),
-         false <- Enum.any?(Map.values(players), &(&1.position == player.position)) do
-      build_players(rest, arena, Map.put(players, player.id, player))
+         true <- Arena.contains?(arena, Map.fetch!(player, :position)),
+         false <- Map.has_key?(players, Map.fetch!(player, :id)),
+         false <- Enum.any?(Map.values(players), &(Map.fetch!(&1, :position) == Map.fetch!(player, :position))) do
+      build_players(rest, arena, Map.put(players, Map.fetch!(player, :id), player))
     else
       _ -> {:error, :invalid_players}
     end
@@ -179,10 +181,10 @@ defmodule Badge.App.Goatwars.Game do
 
   defp validate_inputs(_, _), do: {:error, :invalid_inputs}
   defp outcome([]), do: :draw
-  defp outcome([player]), do: {:winner, player.id}
+  defp outcome([player]), do: {:winner, Map.fetch!(player, :id)}
   defp outcome(_), do: :running
   defp contraction_events(%{inset: inset}, %{inset: inset}), do: []
-  defp contraction_events(_, arena), do: [{:arena_shrank, arena.inset}]
+  defp contraction_events(_, arena), do: [{:arena_shrank, Map.fetch!(arena, :inset)}]
 
   defp ordered(map), do: :lists.keysort(1, Map.to_list(map))
 end

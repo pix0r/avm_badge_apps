@@ -12,26 +12,26 @@ defmodule Badge.App.Goatwars.Input do
   def press(input, id, action) when action == :left or action == :right do
     player = Map.get(input, id, %{held: [], pending: nil})
 
-    if :lists.member(action, player.held) do
+    if :lists.member(action, Map.fetch!(player, :held)) do
       input
     else
-      Map.put(input, id, %{held: [action | player.held], pending: action})
+      Map.put(input, id, %{held: [action | Map.fetch!(player, :held)], pending: action})
     end
   end
 
   def release(input, id, action) when action == :left or action == :right do
     case Map.get(input, id) do
       nil -> input
-      player -> Map.put(input, id, %{player | held: Enum.filter(player.held, &(&1 != action))})
+      player -> Map.put(input, id, %{player | held: Enum.filter(Map.fetch!(player, :held), &(&1 != action))})
     end
   end
 
   @doc "Returns this tick's turns and clears consumed taps, retaining held buttons."
   def take(input) do
     Enum.reduce(Map.to_list(input), {%{}, %{}}, fn {id, player}, {turns, next} ->
-      action = player.pending || held_action(player.held)
+      action = Map.fetch!(player, :pending) || held_action(Map.fetch!(player, :held))
       turns = if action, do: Map.put(turns, id, action), else: turns
-      next = if player.held == [], do: next, else: Map.put(next, id, %{player | pending: nil})
+      next = if Map.fetch!(player, :held) == [], do: next, else: Map.put(next, id, %{player | pending: nil})
       {turns, next}
     end)
   end

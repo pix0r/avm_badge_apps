@@ -16,16 +16,16 @@ defmodule Badge.App.Goatwars.Arena do
       inset: 0,
       left: 0,
       top: 0,
-      right: config.width - 1,
-      bottom: config.height - 1,
-      next_shrink_tick: deadline(config.shrink_after)
+      right: Map.fetch!(config, :width) - 1,
+      bottom: Map.fetch!(config, :height) - 1,
+      next_shrink_tick: deadline(Map.fetch!(config, :shrink_after))
     }
     |> stop_if_minimal()
   end
 
   @spec contains?(t(), {integer(), integer()}) :: boolean()
   def contains?(arena, {x, y}) do
-    x >= arena.left and x <= arena.right and y >= arena.top and y <= arena.bottom
+    x >= Map.fetch!(arena, :left) and x <= Map.fetch!(arena, :right) and y >= Map.fetch!(arena, :top) and y <= Map.fetch!(arena, :bottom)
   end
 
   @spec advance(t(), Config.t(), non_neg_integer()) :: t()
@@ -38,12 +38,12 @@ defmodule Badge.App.Goatwars.Arena do
   def advance(arena, config, tick) do
     %{
       arena
-      | left: arena.left + 1,
-        top: arena.top + 1,
-        right: arena.right - 1,
-        bottom: arena.bottom - 1,
-        inset: arena.inset + 1,
-        next_shrink_tick: arena.next_shrink_tick + config.shrink_every
+      | left: Map.fetch!(arena, :left) + 1,
+        top: Map.fetch!(arena, :top) + 1,
+        right: Map.fetch!(arena, :right) - 1,
+        bottom: Map.fetch!(arena, :bottom) - 1,
+        inset: Map.fetch!(arena, :inset) + 1,
+        next_shrink_tick: Map.fetch!(arena, :next_shrink_tick) + Map.fetch!(config, :shrink_every)
     }
     |> stop_if_minimal()
     |> advance(config, tick)
@@ -52,7 +52,7 @@ defmodule Badge.App.Goatwars.Arena do
   def warning?(%{next_shrink_tick: nil}, _config, _tick), do: false
 
   def warning?(arena, config, tick),
-    do: tick >= arena.next_shrink_tick - config.warning_ticks and tick < arena.next_shrink_tick
+    do: tick >= Map.fetch!(arena, :next_shrink_tick) - Map.fetch!(config, :warning_ticks) and tick < Map.fetch!(arena, :next_shrink_tick)
 
   defp deadline(:never), do: nil
   defp deadline(tick), do: tick

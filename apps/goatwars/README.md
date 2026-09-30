@@ -177,20 +177,14 @@ input consumption, AI delay/pursuit/configuration, badge timing, scoring and rem
 The browser loader registers the app only in the host runtime; firmware source
 and store publishing are unchanged. The renderer compresses horizontal trail runs.
 
-Host verification does not prove AtomVM instruction compatibility, ESP32 memory
-usage, display performance, or radio behavior. The real badge UI ticks every 100 ms,
-so faster requested movement rates cannot be achieved by changing `step_ms` alone.
-A compiled-import regression discovers every game source file recursively and
-checks Elixir library calls against the pinned ExAtomVM function inventory in
-`test/fixtures/atomvm_elixir_functions.txt`. It also rejects `Map.new/2`,
-`Map.update/4`, and `Map.update!/3`, absent from that inventory. This library
-audit does not verify VM instructions, dynamic controller calls or hardware behavior.
-Network play and hardware validation are the next milestones. A fresh badge build
-needs the empty host-dependency directories that `mix store.pack` prepares before
-`mix atomvm.check` can run. The checker still warns about host-only packing helpers
-and missing `Badge.Store` functions; its successful exit does not certify hardware
-compatibility. Current full-project pack tests require `Badge.Store`, missing from
-this sibling checkout; align firmware versions before packaging or publishing.
+Readiness checks now run on the refactored GoatWars source: native badge-v1
+AtomVM execution, actual released boot-library loading, pack/signature checks,
+resource sweeps and real Store firmware UI integration. See
+[the evidence report](../../docs/goatwars-readiness.md) for exact snapshots,
+commands and limits. The selected Store firmware's HTTPS SSL crash risk remains
+unresolved. Physical frame timing, display output and internal RAM must still be
+measured. A fresh badge build needs the empty host-dependency directories that
+`mix store.pack` prepares before `mix atomvm.check` can run.
 
 Original references: [original game](https://en.wikipedia.org/wiki/BeamWars),
 [screenshot and archive](https://www.macintoshrepository.org/3074-beamwars).

@@ -93,3 +93,7 @@ References:
 - [QEMU supported peripherals](https://github.com/espressif/esp-toolchain-docs/blob/main/qemu/README.md)
 - [Local Badge.Page refresh contract](../../avm_badge/lib/badge/page.ex)
 - [Local power/free-heap reporting](../../avm_badge/lib/badge/power.ex)
+
+Current measured native results and readiness limits are recorded in
+[the readiness report](goatwars-readiness.md); earlier estimates here are not
+physical-device measurements.

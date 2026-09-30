@@ -27,8 +27,8 @@ defmodule Badge.App.Goatwars.Player do
 
   @spec move(t(), turn()) :: t()
   def move(player, turn) do
-    direction = turn(player.direction, turn)
-    %{player | direction: direction, position: step(player.position, direction)}
+    direction = turn(Map.fetch!(player, :direction), turn)
+    %{player | direction: direction, position: step(Map.fetch!(player, :position), direction)}
   end
 
   def turn(direction, nil), do: direction

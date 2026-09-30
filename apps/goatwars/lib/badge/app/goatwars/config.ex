@@ -33,8 +33,8 @@ defmodule Badge.App.Goatwars.Config do
 
     if Enum.all?(Map.keys(options), &Enum.member?(allowed, &1)) do
       validate(%{
-        width: options.width,
-        height: options.height,
+        width: Map.fetch!(options, :width),
+        height: Map.fetch!(options, :height),
         shrink_after: Map.get(options, :shrink_after, :perimeter),
         shrink_every: Map.get(options, :shrink_every, 20),
         warning_ticks: Map.get(options, :warning_ticks, 8),
@@ -58,14 +58,14 @@ defmodule Badge.App.Goatwars.Config do
   def perimeter(%{width: width, height: height}), do: 2 * (width + height) - 4
 
   defp validate(config) do
-    if positive?(config.width) and positive?(config.height) and positive?(config.step_ms) and
-         positive?(config.shrink_every) and nonnegative?(config.warning_ticks) and
-         nonnegative?(config.explosion_radius) and nonnegative?(config.retract_speed) and
-         nonnegative?(config.points_per_tick) and
-         nonnegative?(config.bonus_start) and nonnegative?(config.bonus_decay) and
-         shrink_time?(config.shrink_after) do
+    if positive?(Map.fetch!(config, :width)) and positive?(Map.fetch!(config, :height)) and positive?(Map.fetch!(config, :step_ms)) and
+         positive?(Map.fetch!(config, :shrink_every)) and nonnegative?(Map.fetch!(config, :warning_ticks)) and
+         nonnegative?(Map.fetch!(config, :explosion_radius)) and nonnegative?(Map.fetch!(config, :retract_speed)) and
+         nonnegative?(Map.fetch!(config, :points_per_tick)) and
+         nonnegative?(Map.fetch!(config, :bonus_start)) and nonnegative?(Map.fetch!(config, :bonus_decay)) and
+         shrink_time?(Map.fetch!(config, :shrink_after)) do
       shrink_after =
-        if config.shrink_after == :perimeter, do: perimeter(config), else: config.shrink_after
+        if Map.fetch!(config, :shrink_after) == :perimeter, do: perimeter(config), else: Map.fetch!(config, :shrink_after)
 
       {:ok, %{config | shrink_after: shrink_after}}
     else

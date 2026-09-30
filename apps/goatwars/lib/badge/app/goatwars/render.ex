@@ -21,34 +21,34 @@ defmodule Badge.App.Goatwars.Render do
 
   @doc "Heads and trails over a grid; warning marks cover the ring about to disappear."
   def scene(%{occupied: _} = game, %{cell: _} = layout, phase \\ nil) do
-    phase = phase || game.tick
+    phase = phase || Map.fetch!(game, :tick)
 
     heads(game, layout) ++
       warning_ring(game, layout, phase) ++
       trails(game, layout) ++
-      frame(game.arena, layout) ++ grid(game.arena, layout) ++ [background(game.arena, layout)]
+      frame(Map.fetch!(game, :arena), layout) ++ grid(Map.fetch!(game, :arena), layout) ++ [background(Map.fetch!(game, :arena), layout)]
   end
 
   def explosions(effects, layout, %{arena: _} = game) do
-    arena = game.arena
-    blast_radius = game.config.explosion_radius
+    arena = Map.fetch!(game, :arena)
+    blast_radius = Map.fetch!(Map.fetch!(game, :config), :explosion_radius)
 
     Enum.flat_map(effects, fn effect ->
-      {cx, cy} = effect.position
-      {x, y} = point(effect.position, layout)
-      radius = min(effect.age + 1, blast_radius) * layout.cell
-      color = color(effect.id)
+      {cx, cy} = Map.fetch!(effect, :position)
+      {x, y} = point(Map.fetch!(effect, :position), layout)
+      radius = min(Map.fetch!(effect, :age) + 1, blast_radius) * Map.fetch!(layout, :cell)
+      color = color(Map.fetch!(effect, :id))
 
       for {dx, dy} <- [{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}],
           distance <- pixels(radius),
           px = x + dx * distance,
           py = y + dy * distance,
-          px >= layout.x + arena.left * layout.cell,
-          px < layout.x + (arena.right + 1) * layout.cell,
-          py >= layout.y + arena.top * layout.cell,
-          py < layout.y + (arena.bottom + 1) * layout.cell,
-          cell_dx = div(px - layout.x, layout.cell) - cx,
-          cell_dy = div(py - layout.y, layout.cell) - cy,
+          px >= Map.fetch!(layout, :x) + Map.fetch!(arena, :left) * Map.fetch!(layout, :cell),
+          px < Map.fetch!(layout, :x) + (Map.fetch!(arena, :right) + 1) * Map.fetch!(layout, :cell),
+          py >= Map.fetch!(layout, :y) + Map.fetch!(arena, :top) * Map.fetch!(layout, :cell),
+          py < Map.fetch!(layout, :y) + (Map.fetch!(arena, :bottom) + 1) * Map.fetch!(layout, :cell),
+          cell_dx = div(px - Map.fetch!(layout, :x), Map.fetch!(layout, :cell)) - cx,
+          cell_dy = div(py - Map.fetch!(layout, :y), Map.fetch!(layout, :cell)) - cy,
           cell_dx * cell_dx + cell_dy * cell_dy <= blast_radius * blast_radius do
         {:rect, px, py, 1, 1, color}
       end
@@ -60,43 +60,43 @@ defmodule Badge.App.Goatwars.Render do
 
   def cannons(game, layout) do
     Enum.flat_map(Game.living(game), fn player ->
-      {x, y} = point(player.position, layout)
-      c = layout.cell
-      left = min(max(x - c, layout.x), layout.x + game.config.width * c - 3 * c)
-      top = min(max(y - c, layout.y), layout.y + game.config.height * c - 3 * c)
+      {x, y} = point(Map.fetch!(player, :position), layout)
+      c = Map.fetch!(layout, :cell)
+      left = min(max(x - c, Map.fetch!(layout, :x)), Map.fetch!(layout, :x) + Map.fetch!(Map.fetch!(game, :config), :width) * c - 3 * c)
+      top = min(max(y - c, Map.fetch!(layout, :y)), Map.fetch!(layout, :y) + Map.fetch!(Map.fetch!(game, :config), :height) * c - 3 * c)
 
       [
-        {:rect, x, y, c, c, color(player.id)},
-        {:rect, left + c, top + c, c, c, color(player.id)},
+        {:rect, x, y, c, c, color(Map.fetch!(player, :id))},
+        {:rect, left + c, top + c, c, c, color(Map.fetch!(player, :id))},
         {:rect, left + 1, top + 1, max(c * 3 - 2, 1), max(c * 3 - 2, 1), 0x777777}
       ]
     end)
   end
 
   def warning_color(game, phase) do
-    if Arena.warning?(game.arena, game.config, game.tick) and rem(div(phase, 2), 2) == 0,
+    if Arena.warning?(Map.fetch!(game, :arena), Map.fetch!(game, :config), Map.fetch!(game, :tick)) and rem(div(phase, 2), 2) == 0,
       do: @danger,
       else: @wall
   end
 
   defp heads(game, layout) do
-    for player <- Game.living(game), Arena.contains?(game.arena, player.position) do
-      {x, y} = point(player.position, layout)
-      {:rect, x, y, layout.cell, layout.cell, 0xFFFFFF}
+    for player <- Game.living(game), Arena.contains?(Map.fetch!(game, :arena), Map.fetch!(player, :position)) do
+      {x, y} = point(Map.fetch!(player, :position), layout)
+      {:rect, x, y, Map.fetch!(layout, :cell), Map.fetch!(layout, :cell), 0xFFFFFF}
     end
   end
 
   defp trails(game, layout) do
     runs =
-      game.occupied
-      |> Enum.filter(fn {position, _id} -> Arena.contains?(game.arena, position) end)
+      Map.fetch!(game, :occupied)
+      |> Enum.filter(fn {position, _id} -> Arena.contains?(Map.fetch!(game, :arena), position) end)
       |> Enum.map(fn {{x, y}, id} -> {y, x, id} end)
       |> :lists.sort()
       |> Enum.reduce([], &join_run/2)
 
     for {row, column, id, count} <- runs do
       {x, y} = point({column, row}, layout)
-      {:rect, x, y, count * layout.cell, layout.cell, color(id)}
+      {:rect, x, y, count * Map.fetch!(layout, :cell), Map.fetch!(layout, :cell), color(id)}
     end
   end
 
@@ -106,24 +106,24 @@ defmodule Badge.App.Goatwars.Render do
   defp join_run({row, column, id}, runs), do: [{row, column, id, 1} | runs]
 
   defp warning_ring(game, layout, phase) do
-    if Arena.warning?(game.arena, game.config, game.tick) do
-      arena = game.arena
+    if Arena.warning?(Map.fetch!(game, :arena), Map.fetch!(game, :config), Map.fetch!(game, :tick)) do
+      arena = Map.fetch!(game, :arena)
 
       cells =
-        for x <- :lists.seq(arena.left, arena.right),
-            y <- [arena.top, arena.bottom],
+        for x <- :lists.seq(Map.fetch!(arena, :left), Map.fetch!(arena, :right)),
+            y <- [Map.fetch!(arena, :top), Map.fetch!(arena, :bottom)],
             rem(x, 2) == 0,
             do: {x, y}
 
       sides =
-        for y <- :lists.seq(arena.top, arena.bottom),
-            x <- [arena.left, arena.right],
+        for y <- :lists.seq(Map.fetch!(arena, :top), Map.fetch!(arena, :bottom)),
+            x <- [Map.fetch!(arena, :left), Map.fetch!(arena, :right)],
             rem(y, 2) == 0,
             do: {x, y}
 
       for cell <- cells ++ sides do
         {x, y} = point(cell, layout)
-        {:rect, x, y, layout.cell, layout.cell, warning_color(game, phase)}
+        {:rect, x, y, Map.fetch!(layout, :cell), Map.fetch!(layout, :cell), warning_color(game, phase)}
       end
     else
       []
@@ -131,9 +131,9 @@ defmodule Badge.App.Goatwars.Render do
   end
 
   defp frame(arena, layout) do
-    {x, y} = point({arena.left, arena.top}, layout)
-    w = (arena.right - arena.left + 1) * layout.cell
-    h = (arena.bottom - arena.top + 1) * layout.cell
+    {x, y} = point({Map.fetch!(arena, :left), Map.fetch!(arena, :top)}, layout)
+    w = (Map.fetch!(arena, :right) - Map.fetch!(arena, :left) + 1) * Map.fetch!(layout, :cell)
+    h = (Map.fetch!(arena, :bottom) - Map.fetch!(arena, :top) + 1) * Map.fetch!(layout, :cell)
 
     [
       {:rect, x - 1, y - 1, w + 2, 1, @wall},
@@ -144,28 +144,30 @@ defmodule Badge.App.Goatwars.Render do
   end
 
   defp grid(arena, layout) do
-    {left, top} = point({arena.left, arena.top}, layout)
-    w = (arena.right - arena.left + 1) * layout.cell
-    h = (arena.bottom - arena.top + 1) * layout.cell
+    {left, top} = point({Map.fetch!(arena, :left), Map.fetch!(arena, :top)}, layout)
+    w = (Map.fetch!(arena, :right) - Map.fetch!(arena, :left) + 1) * Map.fetch!(layout, :cell)
+    h = (Map.fetch!(arena, :bottom) - Map.fetch!(arena, :top) + 1) * Map.fetch!(layout, :cell)
 
     vertical =
-      for x <- :lists.seq(arena.left, arena.right),
+      for x <- :lists.seq(Map.fetch!(arena, :left), Map.fetch!(arena, :right)),
           rem(x, 8) == 0,
-          do: {:rect, layout.x + x * layout.cell, top, 1, h, @grid}
+          do: {:rect, Map.fetch!(layout, :x) + x * Map.fetch!(layout, :cell), top, 1, h, @grid}
 
     horizontal =
-      for y <- :lists.seq(arena.top, arena.bottom),
+      for y <- :lists.seq(Map.fetch!(arena, :top), Map.fetch!(arena, :bottom)),
           rem(y, 8) == 0,
-          do: {:rect, left, layout.y + y * layout.cell, w, 1, @grid}
+          do: {:rect, left, Map.fetch!(layout, :y) + y * Map.fetch!(layout, :cell), w, 1, @grid}
 
     vertical ++ horizontal
   end
 
   defp background(arena, layout) do
-    {x, y} = point({arena.left, arena.top}, layout)
+    {x, y} = point({Map.fetch!(arena, :left), Map.fetch!(arena, :top)}, layout)
 
-    {:rect, x, y, (arena.right - arena.left + 1) * layout.cell, (arena.bottom - arena.top + 1) * layout.cell, @board}
+    {:rect, x, y, (Map.fetch!(arena, :right) - Map.fetch!(arena, :left) + 1) * Map.fetch!(layout, :cell),
+     (Map.fetch!(arena, :bottom) - Map.fetch!(arena, :top) + 1) * Map.fetch!(layout, :cell), @board}
   end
 
-  defp point({x, y}, layout), do: {layout.x + x * layout.cell, layout.y + y * layout.cell}
+  defp point({x, y}, layout),
+    do: {Map.fetch!(layout, :x) + x * Map.fetch!(layout, :cell), Map.fetch!(layout, :y) + y * Map.fetch!(layout, :cell)}
 end

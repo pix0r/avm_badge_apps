@@ -21,7 +21,7 @@ defmodule Badge.App.Goatwars.Bot do
   @impl true
   def choose(%{tick: tick}, _id, %{due_tick: due} = memory)
       when is_integer(due) and tick >= due do
-    {memory.pending, %{memory | pending: nil, due_tick: nil}}
+    {Map.fetch!(memory, :pending), %{memory | pending: nil, due_tick: nil}}
   end
 
   def choose(%{tick: tick}, _id, %{next_think_tick: next} = memory)
@@ -29,44 +29,56 @@ defmodule Badge.App.Goatwars.Bot do
       do: {nil, memory}
 
   def choose(%{players: _, tick: _} = game, id, %{profile: _} = memory) do
-    profile = memory.profile
+    profile = Map.fetch!(memory, :profile)
     turn = plan(game, id, memory)
-    memory = %{memory | next_think_tick: game.tick + profile.reaction_ticks}
+    memory = %{memory | next_think_tick: Map.fetch!(game, :tick) + Map.fetch!(profile, :reaction_ticks)}
 
-    if profile.decision_delay == 0 do
+    if Map.fetch!(profile, :decision_delay) == 0 do
       {turn, memory}
     else
-      {nil, %{memory | pending: turn, due_tick: game.tick + profile.decision_delay}}
+      {nil, %{memory | pending: turn, due_tick: Map.fetch!(game, :tick) + Map.fetch!(profile, :decision_delay)}}
     end
   end
 
   defp plan(game, id, memory) do
-    profile = memory.profile
-    player = Map.fetch!(game.players, id)
+    profile = Map.fetch!(memory, :profile)
+    player = Map.fetch!(Map.fetch!(game, :players), id)
     # Forecast our forward travel while thinking. No opponent gets pending inputs.
-    {player, occupied} = project(player, game.occupied, profile.decision_delay)
-    arena = Arena.advance(game.arena, game.config, game.tick + profile.decision_delay + 1)
+    {player, occupied} = project(player, Map.fetch!(game, :occupied), Map.fetch!(profile, :decision_delay))
+
+    arena =
+      Arena.advance(Map.fetch!(game, :arena), Map.fetch!(game, :config), Map.fetch!(game, :tick) + Map.fetch!(profile, :decision_delay) + 1)
+
     threats = opponent_destinations(game, id)
-    opponents = for opponent <- Game.living(game), opponent.id != id, do: opponent
+    opponents = for opponent <- Game.living(game), Map.fetch!(opponent, :id) != id, do: opponent
     choices = [{nil, 0}, {:left, 1}, {:right, 2}]
 
     candidates =
       for {turn, preference} <- choices,
           next = Player.move(player, turn),
-          Arena.contains?(arena, player.position),
-          free?(next.position, arena, occupied) do
-        room = reachable([next.position], %{}, arena, occupied, profile.search_limit)
-        risk = if Map.has_key?(threats, next.position), do: profile.caution, else: 0
-        runway = runway(next.position, next.direction, arena, occupied, 0)
-        pursuit = pursuit(next, opponents, profile.prediction_ticks)
+          Arena.contains?(arena, Map.fetch!(player, :position)),
+          free?(Map.fetch!(next, :position), arena, occupied) do
+        room =
+          reachable(
+            [Map.fetch!(next, :position)],
+            %{},
+            arena,
+            occupied,
+            min(Map.fetch!(profile, :search_limit), Map.fetch!(profile, :safe_room))
+          )
+
+        risk = if Map.has_key?(threats, Map.fetch!(next, :position)), do: Map.fetch!(profile, :caution), else: 0
+        limit = max(Map.fetch!(profile, :runway_limit), Map.fetch!(profile, :reaction_ticks) - Map.fetch!(profile, :decision_delay) - 1)
+        runway = runway(Map.fetch!(next, :position), Map.fetch!(next, :direction), arena, occupied, 0, limit)
+        pursuit = pursuit(next, opponents, Map.fetch!(profile, :prediction_ticks))
 
         value =
-          min(room, profile.safe_room) * profile.space_weight +
-            min(runway, profile.runway_limit) * profile.runway_weight +
-            pursuit * profile.aggression - risk
+          min(room, Map.fetch!(profile, :safe_room)) * Map.fetch!(profile, :space_weight) +
+            min(runway, Map.fetch!(profile, :runway_limit)) * Map.fetch!(profile, :runway_weight) +
+            pursuit * Map.fetch!(profile, :aggression) - risk
 
-        safe = if runway >= profile.reaction_ticks - profile.decision_delay - 1, do: 1, else: 0
-        tie = rem(memory.seed + game.tick + preference * 7, profile.tie_modulus)
+        safe = if runway >= Map.fetch!(profile, :reaction_ticks) - Map.fetch!(profile, :decision_delay) - 1, do: 1, else: 0
+        tie = rem(Map.fetch!(memory, :seed) + Map.fetch!(game, :tick) + preference * 7, Map.fetch!(profile, :tie_modulus))
         {{safe, value, tie, -preference}, turn}
       end
 
@@ -77,20 +89,20 @@ defmodule Badge.App.Goatwars.Bot do
 
   defp project(player, occupied, ticks) do
     next = Player.move(player, nil)
-    project(next, Map.put(occupied, next.position, player.id), ticks - 1)
+    project(next, Map.put(occupied, Map.fetch!(next, :position), Map.fetch!(player, :id)), ticks - 1)
   end
 
   defp pursuit(_player, [], _horizon), do: 0
 
   defp pursuit(player, opponents, horizon) do
     Enum.reduce(opponents, -1_000_000, fn opponent, best ->
-      target = predict(opponent.position, opponent.direction, horizon)
-      {x, y} = player.position
+      target = predict(Map.fetch!(opponent, :position), Map.fetch!(opponent, :direction), horizon)
+      {x, y} = Map.fetch!(player, :position)
       {tx, ty} = target
       distance = abs(x - tx) + abs(y - ty)
       # Reward a trail aimed across an opponent's projected path.
       intercept =
-        case player.direction do
+        case Map.fetch!(player, :direction) do
           :east -> ty == y and tx > x and tx - x <= horizon
           :west -> ty == y and tx < x and x - tx <= horizon
           :south -> tx == x and ty > y and ty - y <= horizon
@@ -115,8 +127,8 @@ defmodule Badge.App.Goatwars.Bot do
   end
 
   defp opponent_destinations(game, id) do
-    for player <- Game.living(game), player.id != id, turn <- [nil, :left, :right], into: %{} do
-      {Player.move(player, turn).position, true}
+    for player <- Game.living(game), Map.fetch!(player, :id) != id, turn <- [nil, :left, :right], into: %{} do
+      {Map.fetch!(Player.move(player, turn), :position), true}
     end
   end
 
@@ -134,11 +146,14 @@ defmodule Badge.App.Goatwars.Bot do
     end
   end
 
-  defp runway(cell, direction, arena, occupied, distance) do
+  defp runway(_cell, _direction, _arena, _occupied, distance, limit) when distance >= limit,
+    do: distance
+
+  defp runway(cell, direction, arena, occupied, distance, limit) do
     next = Player.step(cell, direction)
 
     if free?(next, arena, occupied),
-      do: runway(next, direction, arena, occupied, distance + 1),
+      do: runway(next, direction, arena, occupied, distance + 1, limit),
       else: distance
   end
 

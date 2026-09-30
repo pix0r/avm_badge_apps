@@ -3,6 +3,13 @@ defmodule AvmBadgeApps.PackTest do
 
   alias AvmBadgeApps.Pack
 
+  setup do
+    dir = Path.join(System.tmp_dir!(), "badge-pack-" <> Base.encode16(:crypto.strong_rand_bytes(8)))
+    File.mkdir!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+    {:ok, dir: dir}
+  end
+
   @meta %{name: "Demo", author: "Ann", description: "A demo", version: "1.0.0", storage: "ram", category: "games"}
 
   test "metadata must fit the manifest limits" do
@@ -15,10 +22,7 @@ defmodule AvmBadgeApps.PackTest do
     assert_raise Mix.Error, fn -> Pack.validate_meta!("demo", Map.delete(@meta, :author)) end
   end
 
-  test "an app packs its own namespace and needs a page" do
-    dir = Path.join(System.tmp_dir!(), "pack_test_#{System.unique_integer([:positive])}")
-    File.mkdir_p!(dir)
-
+  test "an app packs its own namespace and needs a page", %{dir: dir} do
     for name <- ~w(Elixir.Badge.App.Demo.Page Elixir.Badge.App.Demo.Maths Elixir.Badge.App.Other.Page Elixir.AvmBadgeApps.Pack) do
       File.write!(Path.join(dir, name <> ".beam"), "")
     end
@@ -50,8 +54,8 @@ defmodule AvmBadgeApps.PackTest do
     assert manifest["apps"] == [%{"id" => "a", "version" => "1"}, %{"id" => "b", "version" => "2"}]
   end
 
-  test "a published pack cannot change its bytes" do
-    path = Path.join(System.tmp_dir!(), "pack_immutable_#{System.unique_integer([:positive])}.avm")
+  test "a published pack cannot change its bytes", %{dir: dir} do
+    path = Path.join(dir, "immutable.avm")
     assert Pack.check_immutable!(path, "one") == :ok
     File.write!(path, "one")
     assert Pack.check_immutable!(path, "one") == :ok
