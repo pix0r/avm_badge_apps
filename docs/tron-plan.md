@@ -1,23 +1,23 @@
-# BeamWars build plan and reading guide
+# GoatWars build plan and reading guide
 
-The typed functional core, explosion clearing/retraction, configurable AI/controllers,
+The functional core with typed maps, explosion clearing/retraction, configurable AI/controllers,
 player setup, scoring/bonuses, headless runner and badge
-browser demo are implemented. See [run instructions and tuning](../apps/beamwars/README.md).
+browser demo are implemented. See [run instructions and tuning](../apps/goatwars/README.md).
 The game was initially called GoaTRON; the current app ID and namespace are
-`beamwars` and `Badge.App.Beamwars`.
+`goatwars` and `Badge.App.Goatwars`.
 
 ## Read these first
 
 1. [Badge README](../../avm_badge/README.md): board, simulator, host tests and flashing.
 2. [Badge.Page](../../avm_badge/lib/badge/page.ex): callbacks and AtomGL drawing contract.
 3. [Badge.UI](../../avm_badge/lib/badge/ui.ex): key dispatch, status/header, 100 ms tick.
-4. [Sokoban engine](../apps/sokoban/lib/board.ex), [tests](../test/sokoban/board_test.exs),
-   [page](../apps/sokoban/lib/page.ex): another functional core plus badge adapter.
+4. [Sokoban engine](../apps/sokoban/lib/badge/app/sokoban/board.ex), [tests](../test/badge/app/sokoban/board_test.exs),
+   [page](../apps/sokoban/lib/badge/app/sokoban/page.ex): another functional core plus badge adapter.
 5. [Snake PR #1](https://github.com/mwingert/avm_badge_apps/pull/1), checked out at
    `.worktrees/snake-pr1`, commit `1048534`. Its `apps/snake/lib/game.ex`, `render.ex`
    and `page.ex` demonstrate autopilot space search and presentation separation.
    Snake's disappearing tail and food rules differ from permanent lightcycle trails.
-6. [Fractals page](../apps/fractals/lib/page.ex): worker lifecycle and stale results.
+6. [Fractals page](../apps/fractals/lib/badge/app/fractals/page.ex): worker lifecycle and stale results.
 
 Simulator: [entry](../../avm_badge/sim/lib/badge/sim.ex),
 [board](../../avm_badge/sim/lib/badge/sim/board.ex),
@@ -31,7 +31,7 @@ Networking candidates: [cluster link](../../avm_badge/lib/badge/cluster/link.ex)
 [WebSocket wrapper](../../avm_badge/lib/badge/chat/socket.ex).
 These are transport examples, not an existing multiplayer match service.
 [Keyboard implementation](../../avm_badge/lib/badge/keyboard.ex) documents repeat
-and matrix constraints. Packaging lives in [the pack task](../lib/mix/tasks/store.pack.ex).
+and matrix constraints. Packaging lives in [the pack task](../lib/mix/tasks/store/pack.ex).
 
 General references: [AtomVM programmer's guide](https://doc.atomvm.org/main/programmers-guide.html),
 [AtomVM examples](https://github.com/atomvm/atomvm_examples),
@@ -43,15 +43,15 @@ Prefer this firmware's actual fork over generic documentation for runtime suppor
 
 | Component | Responsibility |
 | --- | --- |
-| Config / Arena / Player / State structs | Explicit, validated game data |
+| Config / Arena / Player / State maps | Explicit, validated game data |
 | Game | Pure deterministic simultaneous steps and collision resolution |
 | Controller / Bot.Profile / Bot | Input-source contract and tunable AI memory/policy |
 | Match | Controller ownership, pending input, replay, survival scores and bonuses |
 | Page.State / Page | Badge clock adapter, key bindings, rematches and total scores |
 | Render.Layout / Render | Convert state into drawing items |
 
-Maps index players, occupied coordinates and controller assignments; named structs
-represent state records. Controllers, clocks, colors, keys and sockets stay outside
+Maps index players, occupied coordinates and controller assignments; constructors return plain maps
+for state records. Controllers, clocks, colors, keys and sockets stay outside
 the game state. One owner resolves every player together; no process per bike.
 
 ## Next milestones
@@ -90,4 +90,4 @@ Sources: [Enum](https://github.com/protolux-electronics/AtomVM/blob/badge-v1/lib
 [lists](https://github.com/protolux-electronics/AtomVM/blob/badge-v1/libs/estdlib/src/lists.erl),
 [native functions](https://github.com/protolux-electronics/AtomVM/blob/badge-v1/src/libAtomVM/nifs.c).
 
-Resource validation: [Snake hardware report, measurements and constrained-runtime options](beamwars-resources.md).
+Resource validation: [Snake hardware report, measurements and constrained-runtime options](goatwars-resources.md).
