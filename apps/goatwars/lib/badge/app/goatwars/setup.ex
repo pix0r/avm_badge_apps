@@ -4,7 +4,6 @@ defmodule Badge.App.Goatwars.Setup do
   @modes [:human, :beginner, :intermediate, :expert, :pro, :inactive]
   @keys [:arrows, :zx, :one_two, :nine_zero]
   @boards [{24, 14}, {51, 30}, {78, 46}]
-  @steps [100, 200, 300, 400]
 
   def new(controllers \\ %{}) do
     slots =
@@ -31,7 +30,7 @@ defmodule Badge.App.Goatwars.Setup do
 
   def cycle_keys(setup, id), do: keys(setup, id, cycle(@keys, Map.fetch!(Map.fetch!(setup, :slots)[id], :keys), 1))
   def cycle_board(setup), do: %{setup | board: cycle(@boards, Map.fetch!(setup, :board), 1)}
-  def cycle_speed(setup), do: %{setup | step_ms: cycle(@steps, Map.fetch!(setup, :step_ms), 1)}
+  def adjust_speed(setup, delta), do: %{setup | step_ms: min(max(Map.fetch!(setup, :step_ms) + delta, 50), 400)}
 
   def keys(setup, id, preset) do
     previous = Map.fetch!(Map.fetch!(setup, :slots)[id], :keys)

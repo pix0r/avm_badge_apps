@@ -22,14 +22,14 @@ known unresolved hardware risk.
 
 | Gate | Result |
 | --- | --- |
-| Apps host suite | 157 tests, zero failures; 11 Python checks pass |
+| Apps host suite | 159 tests, zero failures; 11 Python checks pass |
 | Selected firmware suite | 1,408 tests, zero failures; two asset-regeneration tests excluded |
 | Native badge-v1 execution | 20 seeded matches plus countdown, pause, settings, restart and render assertions pass |
 | Exact VM compatibility | All imports and 59 instruction types in 19 game modules resolve against pinned VM sources/libraries |
 | Actual released boot library | Real app pack loads dynamically; imported library exports and page lifecycle pass on native AtomVM with released boot.avm |
-| Store packaging | 54,200 bytes, under the 65,536-byte limit; native pack and host pack tests pass |
+| Store packaging | 54,504 bytes, under the 65,536-byte limit; native pack and host pack tests pass |
 | Store authentication | Disposable-key signed pack verifies; tampering is rejected; no production key or publishing used |
-| Real firmware UI | Four integration scenarios pass, including ticker backpressure: empty NVS launch/key routing, retained installation with offline reload failure, crashed game recovery to Home |
+| Real firmware UI | Five integration scenarios pass, including 50/110/130/400 ms cadence, time counters, ticker backpressure, offline launch/reload and crash recovery |
 | Resource stress | All three board sizes, exact tick-97 state, dense board, 25 entries and 900 total rounds pass at 4,096/8,192/16,384 words; 32 retained frames in each size pass at 32,768 words; binary memory is checked separately |
 | Actual USB game delivery | Rebuilt main/assets packs load together on native AtomVM; default middle round ends at tick 90, small at 91 and full-size at 207 |
 | Simulator | Built-in splash/home/reboot check passes; game interaction covered separately through real UI |
@@ -75,7 +75,7 @@ it does not exercise an actual HTTPS transfer or physical flash wear/power loss.
 ## Artifact identity and first-device installation
 
 Game pack SHA-256:
-`67a15e3ccabc3aeeaf4ba4b84acbe88dd57c9452da93b43fcaa0a4c0c49eee2b`.
+`4e1f785862298cac10ba3cc346dcb730b6873c01661d42d05feabfbf8f482d11`.
 Released boot.avm is 524,880 bytes, SHA-256
 `652d98edf174ea7ec650b9e573a4cb479fbf99fc7d017cddfdebe4fd97f2adbf`.
 Release checksums verify and its seven partition rows match source exactly.
@@ -84,8 +84,8 @@ Release checksums verify and its seven partition rows match source exactly.
 | --- | ---: | ---: | ---: |
 | factory VM | 1,742,512 | 1,966,080 | 223,568 |
 | boot | 524,880 | 557,056 | 32,176 |
-| USB assets with game modules | 260,136 | 262,144 | 2,008 |
-| USB main firmware | 665,480 | 671,744 | 6,264 |
+| USB assets with game modules | 260,440 | 262,144 | 1,704 |
+| USB main firmware | 666,172 | 671,744 | 5,572 |
 
 A blank device needs the pinned base image (including boot.avm and matching
 partition table), assets, and this Store firmware before installing the app.
@@ -183,3 +183,14 @@ actual USB split is rebuilt and tested. The new middle board passes 300 seeded
 rounds across three heap caps, with a peak sampled binary usage of 8,500 bytes
 at frame boundaries and 202,684 bytes with 32 rendered frames retained. Total
 stress is 900 rounds across the three sizes. The badge was not accessed.
+
+## Fine speed and faster tick requests
+
+Version 0.1.3 changes speed in 10 ms increments from 50–400 ms. F increases the
+step duration and V decreases it. Firmware now honors a page's optional tick
+interval, preserving the 100 ms default for existing pages. The timer still
+waits for each callback to finish before sending another tick. UI sleep/status
+accounting uses 10 ms units; frame throttling uses the next requested interval.
+Small callback jitter no longer shifts each game deadline; long stalls advance
+once without a catch-up loop. The new firmware passes the full 1,408-test suite
+and game integration gates. Physical sub-100 ms throughput remains unmeasured.

@@ -100,7 +100,10 @@ defmodule Badge.App.Goatwars.Page do
     do: {:ok, %{state | draft: Setup.cycle_board(Map.fetch!(state, :draft))}}
 
   defp settings_key({:char, ?f}, state),
-    do: {:ok, %{state | draft: Setup.cycle_speed(Map.fetch!(state, :draft))}}
+    do: {:ok, %{state | draft: Setup.adjust_speed(Map.fetch!(state, :draft), 10)}}
+
+  defp settings_key({:char, ?v}, state),
+    do: {:ok, %{state | draft: Setup.adjust_speed(Map.fetch!(state, :draft), -10)}}
 
   defp settings_key({:char, ?s}, state),
     do: {:ok, %{state | screen: :game, draft: nil, launch_at: nil, due_at: nil}}
@@ -134,7 +137,13 @@ defmodule Badge.App.Goatwars.Page do
 
   def tick(state), do: advance(state, :erlang.monotonic_time(:millisecond))
   @impl true
-  def refresh(_state), do: 100
+  def refresh(state), do: tick_interval(state)
+
+  @impl true
+  def tick_interval(%{screen: :game, started: true, paused: false, result_until: nil, match: %{game: %{config: %{step_ms: ms}}}}),
+    do: ms
+
+  def tick_interval(_state), do: 100
 
   @doc "Advances against an explicit clock for deterministic shell tests."
   def advance(%{screen: :settings} = state, _now), do: state
@@ -166,12 +175,15 @@ defmodule Badge.App.Goatwars.Page do
 
     effects = crash_effects(Map.fetch!(match, :events), age_effects(Map.fetch!(state, :effects)))
     game = Map.fetch!(match, :game)
+    step_ms = Map.fetch!(Map.fetch!(game, :config), :step_ms)
+    previous_due = Map.fetch!(state, :due_at)
+    due_at = if is_integer(previous_due) and now < previous_due + step_ms * 2, do: previous_due + step_ms, else: now + step_ms
 
     %{
       state
       | scores: scores,
         match: match,
-        due_at: now + Map.fetch!(Map.fetch!(game, :config), :step_ms),
+        due_at: due_at,
         effects: effects,
         frame: Map.fetch!(state, :frame) + 1,
         result_until: if(Map.fetch!(game, :status) == :running, do: nil, else: now + 2000)
@@ -382,7 +394,7 @@ defmodule Badge.App.Goatwars.Page do
       rows ++
       text(8, 144, "R: Retract " <> if(Map.fetch!(setup, :retract), do: "ON", else: "OFF"), 0xFFFFFF) ++
       text(8, 162, "G: Board " <> int(width) <> "x" <> int(height), 0xFFFFFF) ++
-      text(8, 180, "F: Step " <> int(Map.fetch!(setup, :step_ms)) <> "ms", 0xFFFFFF) ++
+      text(8, 180, "F/V: Step " <> int(Map.fetch!(setup, :step_ms)) <> "ms", 0xFFFFFF) ++
       text(8, 198, "Arrows: mode  C: keys", 0xA4B8C9) ++
       text(8, 217, hint, 0xFFFFFF) ++
       [{:rect, 0, 24, 320, 216, 0x000020}]

@@ -66,7 +66,8 @@ manifest are not changed by building these images.
    on the new middle 51×30 board with 6-pixel cells.
 2. Use Left/Right to take over player one. Space pauses and resumes. `S` opens
    player settings, arrows change selections, and Enter applies them. G cycles
-   small/middle/full boards; F cycles 100/200/300/400 ms steps (higher is slower).
+   small/middle/full boards; F slows down by 10 ms and V speeds up by 10 ms,
+   from 50–400 ms per step. Enter applies the choices.
    The default key pairs are Left/Right, Z/X, 1/2 and 9/0 for players 1–4.
 3. Press `R` to rematch. Return Home using the normal navigation key, then reopen
    GoatWars and confirm the game starts fresh.
@@ -91,8 +92,12 @@ controller; its settings offer Human, AI Simple and Inactive.
 
 ## Performance diagnostics
 
-Version 0.1.2 defaults to a 51×30 bitmap board and a ticker with backpressure.
+Version 0.1.3 defaults to a 51×30 bitmap board and a ticker with backpressure.
 Rematches preserve board size and speed; leaving and reopening restores defaults.
+The installer also includes firmware with a page-specific tick cadence; this is
+required for fine timing and sub-100 ms play. It requests up to 20 frames/s at
+50 ms, subject to actual VM/display throughput. No physical frame-rate claim
+has been verified for this build.
 Press T in the game for timing logs; M then restarts the same seed in legacy or
 bitmap mode. The [performance guide](goatwars-performance.md) explains the local
 benchmarks, physical checks and what the measurements cover.

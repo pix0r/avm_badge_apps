@@ -121,6 +121,33 @@ defmodule GoatwarsIntegrationTest do
     assert :sys.get_state(Badge.UI).page == Badge.Page.Home
   end
 
+  test "the UI acknowledges fine game cadences and accounts for elapsed sleep time" do
+    install()
+    Badge.UI.goto(Page)
+    ui = :sys.get_state(Badge.UI)
+
+    for interval <- [50, 110, 130, 400] do
+      game = Page.init(countdown_ms: 0, rules: %{width: 51, height: 30, step_ms: interval})
+      {:noreply, next} = Badge.UI.handle_info({:render_tick, self()}, %{ui | page_state: game})
+      assert_receive {:rendered, ^interval}
+      assert next.tick_ms == interval
+      assert next.countdown == 0
+    end
+
+    game = Page.init(countdown_ms: 0, rules: %{width: 51, height: 30, step_ms: 50})
+    {:noreply, next} = Badge.UI.handle_info({:render_tick, self()}, %{ui | page_state: game})
+    assert_receive {:rendered, 50}
+    next = %{next | idle: 0, status_countdown: 100}
+    {:noreply, next} = Badge.UI.handle_info({:render_tick, self()}, next)
+    assert_receive {:rendered, 50}
+    assert next.idle == 5
+    assert next.status_countdown == 95
+
+    {:ok, paused} = Page.handle_key({:char, 32}, next.page_state)
+    {:noreply, _} = Badge.UI.handle_info({:render_tick, self()}, %{next | page_state: paused})
+    assert_receive {:rendered, 100}
+  end
+
   defp install do
     :sys.replace_state(Badge.UI, fn ui ->
       entry = %{

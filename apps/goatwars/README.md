@@ -38,8 +38,9 @@ Exit the simulator's IEx with Ctrl-C, then `a`.
 | Esc, then F1 | Home, then reopen GoatWars |
 
 In settings, Up/Down selects a player; Left/Right cycles Human, AI Simple and
-Inactive. G cycles 24×14, 51×30 and 78×46 cells. F cycles the step duration
-through 100, 200, 300 and 400 ms; larger durations slow the game. C cycles left/right key presets; choosing
+Inactive. G cycles 24×14, 51×30 and 78×46 cells. F adds 10 ms to the step
+duration; V subtracts 10 ms. The range is 50–400 ms; larger durations slow the
+game. C cycles left/right key presets; choosing
 an occupied preset swaps assignments. R toggles beam retraction. Enter applies
 settings and starts a new countdown. At least two slots must be active. Settings
 suspend the match; S cancels without applying changes. Board size and speed are
@@ -53,7 +54,10 @@ The last press before a tick wins. Held-key integration remains deferred.
 The badge preset is 51×30 cells, drawn at 6 pixels per cell, at 100 ms per step.
 Its fixed bitmap is 6,120 bytes with packed trails, rendered as one scaled image.
 S, G, Enter selects the original 78×46 board. Press G twice in settings to
-select the small 24×14 board instead. F adjusts speed without changing the board.
+select the small 24×14 board instead. F/V adjust speed without changing the board.
+The paired USB firmware honors the chosen tick cadence, including below 100 ms;
+older firmware ticks pages every 100 ms. Actual physical frame rate can be lower
+than the requested rate if gameplay or display work takes longer.
 [Performance verification](../../docs/goatwars-performance.md)
 contains benchmarks and device timing instructions.
 

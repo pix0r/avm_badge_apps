@@ -17,10 +17,11 @@ defmodule GoatwarsReadiness do
     {:ok, settings} = Page.handle_key({:char, ?f}, settings)
     {:ok, restarted} = Page.handle_key({:edit, :newline}, settings)
     false = restarted.started
-    200 = restarted.match.game.config.step_ms
+    110 = restarted.match.game.config.step_ms
     restarted = restarted |> Page.advance(0) |> Page.advance(3000)
-    1 = Page.advance(restarted, 3199).match.game.tick
-    2 = Page.advance(restarted, 3200).match.game.tick
+    110 = Page.tick_interval(restarted)
+    1 = Page.advance(restarted, 3109).match.game.tick
+    2 = Page.advance(restarted, 3110).match.game.tick
 
     controls =
       Enum.reduce([{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}], Page.init(), fn event, page ->

@@ -2,7 +2,7 @@
 
 The latest October 1 build defaults to a 51×30 board with 6-pixel cells and a
 fixed 6,120-byte RGBA bitmap. In settings, G cycles 24×14, 51×30 and 78×46;
-F cycles 100, 200, 300 and 400 ms per step. Enter applies both choices, S cancels,
+F adds 10 ms and V subtracts 10 ms per step, within 50–400 ms. Enter applies both choices, S cancels,
 and rematches retain them. Paths are packed coordinate binaries. Rendering submits one
 scaled board image. The board background is solid; the former grid lines are omitted.
 Headless matches still use maps. The firmware ticker waits for a completed UI
@@ -10,7 +10,23 @@ callback before requesting another frame, preventing a backlog ahead of keys.
 
 ## Middle board and configurable pace
 
-After the small board proved too fast in physical play, version 0.1.2 adds the
+Version 0.1.3 uses 10 ms adjustments, F slower and V faster, bounded at 50–400 ms.
+The earlier 100 ms floor was the firmware ticker, not a measured panel limit.
+An optional `tick_interval/1` lets this game select its cadence; other pages
+retain 100 ms ticks. Paused, countdown, settings and result screens also use
+100 ms. UI render backpressure remains in place and its sleep/status counters
+scale with the requested interval. Fine deadlines retain phase through small
+callback jitter; a long stall advances once and resets the deadline.
+
+The new paired USB firmware is required to honor fine and sub-100 ms speeds.
+At 50 ms the requested rate is 20 steps/frames per second, subject to VM,
+display and scheduling time. This was not measured on physical hardware.
+159 game tests, 1,408 firmware tests (two asset-regeneration cases excluded),
+five integration scenarios, 11 script tests and the strict native game gates
+pass. Final USB/native evidence is under
+`/private/tmp/beamwars-readiness/goatwars-fine-speed-final-native`.
+
+After the small board proved too fast in physical play, version 0.1.2 added the
 arithmetic midpoint 51×30 as the default. Its cells are 6 pixels wide versus
 13 for 24×14 and 4 for 78×46. The bitmap is 2.35× smaller than the original.
 Movement remains one cell per step; configurable step durations slow it without

@@ -53,7 +53,7 @@ defmodule Badge.App.Goatwars.PageTest do
     {:ok, settings} = Page.handle_key({:char, ?f}, settings)
     assert settings.match.game.config.step_ms == 100
     labels = for {:text, _, _, _, _, _, label} <- Page.render(settings), do: label
-    assert "F: Step 200ms" in labels
+    assert "F/V: Step 110ms" in labels
     assert "G: Board 51x30" in labels
     assert "Z/X" in labels
     assert "1/2" in labels
@@ -62,26 +62,70 @@ defmodule Badge.App.Goatwars.PageTest do
     assert slow.match.game.config.width == 51
     slow = slow |> Page.advance(0) |> Page.advance(3000)
     assert slow.match.game.tick == 1
-    assert Page.advance(slow, 3199).match.game.tick == 1
-    assert Page.advance(slow, 3200).match.game.tick == 2
+    assert Page.advance(slow, 3109).match.game.tick == 1
+    assert Page.advance(slow, 3110).match.game.tick == 2
     {:ok, rematch} = Page.handle_key({:char, ?r}, slow)
-    assert rematch.match.game.config.step_ms == 200
+    assert rematch.match.game.config.step_ms == 110
     {:ok, settings} = Page.handle_key({:char, ?s}, rematch)
     {:ok, settings} = Page.handle_key({:char, ?g}, settings)
     {:ok, full} = Page.handle_key(:enter, settings)
     assert full.match.game.config.width == 78
-    assert full.match.game.config.step_ms == 200
+    assert full.match.game.config.step_ms == 110
   end
 
-  test "speed cycles through slower steps and wraps back to the original pace" do
+  test "speed adjusts in ten-millisecond steps with safe upper and lower bounds" do
     {:ok, settings} = Page.handle_key({:char, ?s}, Page.init())
 
-    Enum.reduce([200, 300, 400, 100], settings, fn expected, settings ->
-      {:ok, next} = Page.handle_key({:char, ?f}, settings)
-      {:ok, game} = Page.handle_key(:enter, next)
+    settings =
+      Enum.reduce([110, 120, 130], settings, fn expected, settings ->
+        {:ok, next} = Page.handle_key({:char, ?f}, settings)
+        {:ok, game} = Page.handle_key(:enter, next)
+        assert game.match.game.config.step_ms == expected
+        next
+      end)
+
+    {:ok, settings} = Page.handle_key({:char, ?v}, settings)
+    {:ok, game} = Page.handle_key(:enter, settings)
+    assert game.match.game.config.step_ms == 120
+
+    for {key, expected} <- [{?v, 50}, {?f, 400}] do
+      limit =
+        Enum.reduce(1..50, settings, fn _, current ->
+          {:ok, next} = Page.handle_key({:char, key}, current)
+          next
+        end)
+
+      {:ok, game} = Page.handle_key(:enter, limit)
       assert game.match.game.config.step_ms == expected
-      next
-    end)
+    end
+  end
+
+  test "fast gameplay asks for its cadence while menus keep their normal cadence" do
+    state = Page.init(countdown_ms: 0, rules: %{width: 51, height: 30, step_ms: 50})
+    assert Page.tick_interval(state) == 50
+    assert Page.refresh(state) == 50
+    next = Page.advance(state, 0)
+    assert Page.advance(next, 49).match.game.tick == 1
+    assert Page.advance(next, 50).match.game.tick == 2
+    {:ok, paused} = Page.handle_key({:char, 32}, state)
+    {:ok, settings} = Page.handle_key({:char, ?s}, state)
+
+    for page <- [paused, settings, Page.init()] do
+      assert Page.tick_interval(page) == 100
+      assert Page.refresh(page) == 100
+    end
+  end
+
+  test "small callback jitter does not halve a finely selected game speed" do
+    state = Page.init(countdown_ms: 0, rules: %{width: 51, height: 30, step_ms: 110})
+    state = Page.advance(state, 0)
+    assert Page.advance(state, 109).match.game.tick == 1
+    state = Enum.reduce([220, 329, 440, 549], state, &Page.advance(&2, &1))
+    assert state.match.game.tick == 5
+    assert state.due_at == 550
+    late = Page.advance(state, 10_000)
+    assert late.match.game.tick == 6
+    assert late.due_at == 10_110
   end
 
   test "canceling a speed change retains a custom pace" do
