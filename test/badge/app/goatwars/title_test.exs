@@ -65,6 +65,7 @@ defmodule Badge.App.Goatwars.TitleTest do
     labels = fn state -> for {:text, _, _, _, _, _, label} <- Page.render(state), do: label end
     assert "Enter: play" in labels.(title)
     assert "3" in labels.(countdown)
+    assert "DON'T LET IT CRASH" in labels.(countdown)
     assert "PAUSED" in labels.(paused)
     assert "PLAYER 2 WINS" in labels.(winner)
     assert "BONUS 120" in labels.(winner)

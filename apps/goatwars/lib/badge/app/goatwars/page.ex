@@ -371,7 +371,7 @@ defmodule Badge.App.Goatwars.Page do
   defp caption(%{paused: true}), do: {"PAUSED", "Space: back to the herd", 0xFFFFFF}
 
   defp caption(%{started: false, launch_remaining: remaining}),
-    do: {int(div(remaining + 999, 1000)), "READY, SET, GOAT!", 0xFFFFFF}
+    do: {int(div(remaining + 999, 1000)), "DON'T LET IT CRASH", 0xFFFFFF}
 
   defp caption(%{match: %{game: %{status: :draw}}}), do: {"DRAW", "No goat left standing", 0xFFFFFF}
 

@@ -49,7 +49,7 @@ defmodule GoatwarsIntegrationTest do
     assert length(snapshot.items) == length(snapshot.frame)
     Badge.UI.key_event(Badge.Keymap.decode(~c"Enter", false))
     tick()
-    assert Enum.any?(Display.snapshot().items, &match?({:text, _, _, _, _, _, "READY, SET, GOAT!"}, &1))
+    assert Enum.any?(Display.snapshot().items, &match?({:text, _, _, _, _, _, "DON'T LET IT CRASH"}, &1))
     Badge.UI.key_event(Badge.Keymap.decode(~c"Left", false))
     assert :sys.get_state(Badge.UI).page_state.match.controllers[1] == :human
     Badge.UI.key_event(Badge.Keymap.decode(~c"S", false))
