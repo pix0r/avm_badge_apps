@@ -4,9 +4,14 @@ defmodule GoatwarsBenchmark do
 
   def start do
     :io.format(~c"GW_BENCH word_bytes=~p~n", [:erlang.system_info(:wordsize)])
+    started = :erlang.monotonic_time(:microsecond)
+    repeat(fn -> Page.init(countdown_ms: 0, rules: @rules) end, 50)
+    :io.format(~c"GW_INIT cpu_us=~p~n", [div(:erlang.monotonic_time(:microsecond) - started, 50)])
+    initial = Page.init(countdown_ms: 0, rules: @rules)
+    terminal = play(initial, 0)
 
-    for tick <- [0, 30, 31, 32, 33, 34, 35, 36, 64, 96, 97, 128, 192, 207] do
-      state = build(Page.init(countdown_ms: 0, rules: @rules), 0, tick)
+    for tick <- [0, 30, 31, 32, 33, 34, 35, 36, 64, 96, 97, 128, 192, terminal] do
+      state = build(initial, 0, min(tick, terminal))
       now = tick * 100
       measure(~c"tick", state, fn -> Page.advance(state, now) end)
       measure(~c"render", state, fn -> Page.render(state) end)
@@ -21,11 +26,11 @@ defmodule GoatwarsBenchmark do
     :io.format(~c"GW_STATE tick=240 words=~p items=~p~n", [:erts_debug.flat_size(state), length(Page.render(state))])
 
     started = :erlang.monotonic_time(:microsecond)
-    ticks = rounds(5, 0)
+    ticks = rounds(5, 0, initial)
     elapsed = :erlang.monotonic_time(:microsecond) - started
     :io.format(~c"GW_ROUND cpu_us=~p ticks=~p rounds=5~n", [elapsed, ticks])
 
-    for {width, height} <- [{24, 14}, {78, 46}] do
+    for {width, height} <- [{14, 14}, {23, 23}, {30, 30}, {46, 46}, {24, 14}, {39, 23}, {51, 30}, {78, 46}] do
       rules = %{@rules | width: width, height: height}
       state = build(Page.init(countdown_ms: 0, rules: rules), 0, 4)
       started = :erlang.monotonic_time(:microsecond)
@@ -65,8 +70,8 @@ defmodule GoatwarsBenchmark do
     repeat(fun, n - 1)
   end
 
-  defp rounds(0, ticks), do: ticks
-  defp rounds(n, ticks), do: rounds(n - 1, ticks + play(Page.init(countdown_ms: 0, rules: @rules), 0))
+  defp rounds(0, ticks, _initial), do: ticks
+  defp rounds(n, ticks, initial), do: rounds(n - 1, ticks + play(initial, 0), initial)
 
   defp play(state, now) do
     state = Page.advance(state, now)

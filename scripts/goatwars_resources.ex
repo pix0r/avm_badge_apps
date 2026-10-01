@@ -1,12 +1,31 @@
 defmodule GoatwarsResources do
   alias Badge.App.Goatwars.{Page, Render}
   @coarse %{width: 24, height: 14, explosion_radius: 2, retract_speed: 8}
-  @middle %{width: 51, height: 30, explosion_radius: 2, retract_speed: 8}
+  @middle %{width: 23, height: 23, explosion_radius: 2, retract_speed: 8}
   @full %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8}
 
   def start do
     :io.format(~c"Word size: ~p bytes~n", [:erlang.system_info(:wordsize)])
-    fixtures = [:beginner, :intermediate, :expert, :pro, :fullsize, :reported_state, :dense, :lifecycle, :soak, :middle_soak, :full_soak]
+
+    fixtures = [
+      :beginner,
+      :intermediate,
+      :expert,
+      :pro,
+      :fullsize,
+      :reported_state,
+      :dense,
+      :lifecycle,
+      :soak,
+      :middle_soak,
+      :full_soak,
+      :square_s_soak,
+      :square_l_soak,
+      :square_xl_soak,
+      :wide_m_soak,
+      :wide_l_soak
+    ]
+
     results = for fixture <- fixtures, limit <- [4096, 8192, 16384], do: run(fixture, limit)
     results = [run(:queue, 32768), run(:coarse_queue, 32768), run(:full_queue, 32768) | results]
     true = accepted?(results)
@@ -91,6 +110,11 @@ defmodule GoatwarsResources do
   def fixture(:soak), do: soak(100, 0, 0, @coarse)
   def fixture(:middle_soak), do: soak(100, 0, 0, @middle)
   def fixture(:full_soak), do: soak(100, 0, 0, @full)
+  def fixture(:square_s_soak), do: soak(100, 0, 0, %{@coarse | width: 14})
+  def fixture(:square_l_soak), do: soak(100, 0, 0, %{@middle | width: 30, height: 30})
+  def fixture(:square_xl_soak), do: soak(100, 0, 0, %{@full | width: 46})
+  def fixture(:wide_m_soak), do: soak(100, 0, 0, %{@middle | width: 39})
+  def fixture(:wide_l_soak), do: soak(100, 0, 0, %{@middle | width: 51, height: 30})
   def fixture(:queue), do: queued(Page.init(countdown_ms: 0), 0, [], 0)
   def fixture(:coarse_queue), do: queued(Page.init(countdown_ms: 0, rules: @coarse), 0, [], 0)
   def fixture(:full_queue), do: queued(Page.init(countdown_ms: 0, rules: @full), 0, [], 0)

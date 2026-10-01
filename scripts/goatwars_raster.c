@@ -32,7 +32,7 @@ int main(int argc,char **argv) {
       FILE *image=fopen(path,"rb"); if(!image)return 3;
       size_t size=v->data.image_data_with_size.width*v->data.image_data_with_size.height*4;
       char *data=malloc(size); if(fread(data,1,size,image)!=size)return 4;fclose(image);
-      v->data.image_data_with_size.pix=data;v->brcolor=0;
+      v->data.image_data_with_size.pix=data;v->brcolor=color ? ((color<<8)|255) : 0;
     }
   }
   fclose(input);

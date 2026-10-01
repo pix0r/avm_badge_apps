@@ -40,23 +40,25 @@ Exit the simulator's IEx with Ctrl-C, then `a`.
 | Esc, then F1 | Home, then reopen GoatWars |
 
 In settings, Up/Down selects a player; Left/Right cycles Human, AI Simple and
-Inactive. G cycles 24×14, 51×30 and 78×46 cells. F adds 10 ms to the step
+Inactive. G cycles S/M/L/XL. A switches Square/Wide while keeping the size.
+Square dimensions are 14×14, 23×23, 30×30 and 46×46; Wide dimensions are
+24×14, 39×23, 51×30 and 78×46. F adds 10 ms to the step
 duration; V subtracts 10 ms. The range is 50–400 ms; larger durations slow the
 game. C cycles left/right key presets; choosing
 an occupied preset swaps assignments. R toggles beam retraction. Enter applies
 settings and starts a new countdown. At least two slots must be active. Settings
-suspend the match; S cancels without applying changes and returns to the screen that opened them. Board size and speed are
-independent; rematches preserve both. Leaving and reopening restores defaults.
+suspend the match; S cancels without applying changes and returns to the screen that opened them. Board size, aspect and speed are
+independent; rematches preserve all three. Leaving and reopening restores defaults.
 
 The title shows detailed goat/lightcycle art and “DON’T LET IT CRASH”. Pause, win
 and draw screens reuse the goat. The countdown shows the full board and launchers.
 Artwork is embedded as RLE-compressed sixteen-colour pixel indices (3,748
 bytes), decoded once when the page opens, and reused as RGBA binaries (46.5 KiB).
 Stars and neon scenery are display primitives. The Elixir/Goatmire palette uses a
-purple board with gold, mint, coral and lavender trails. The app pack is 64,944
-bytes, 10,440 bytes above the `e08cff2` baseline and below the 65,536-byte Store
-limit. The matching offline USB build fits with 4,444 bytes free in the firmware
-partition and no free space in assets; rebuild and check both sizes after changes.
+purple board with gold, mint, coral and lavender trails. The app pack is 65,476
+bytes, under the 65,536-byte Store limit. The matching offline USB build has
+3,432 bytes free in firmware and no free space in assets; rebuild and check both
+sizes after changes.
 The USB pack excludes host-only Mix tasks. [Artwork and extraction prompts](assets/source.json)
 record the two sprites; PNG previews are excluded from firmware packs.
 `Page.init(countdown_ms: 0)` skips the title and countdown for tests and benchmarks.
@@ -66,10 +68,12 @@ The last press before a tick wins. Held-key integration remains deferred.
 
 ## Rules and configuration
 
-The badge preset is 51×30 cells, drawn at 6 pixels per cell, at 100 ms per step.
-Its fixed bitmap is 6,120 bytes with packed trails, rendered as one scaled image.
-S, G, Enter selects the original 78×46 board. Press G twice in settings to
-select the small 24×14 board instead. F/V adjust speed without changing the board.
+The badge preset is M Square: 23×23 cells, drawn at 8 pixels per cell, at
+100 ms per step. Square spawns are rotationally symmetric, including even sizes.
+Its fixed bitmap is 2,116 bytes with packed trails, rendered as one scaled image.
+In settings, G cycles M → L → XL → S; A switches the selected size between
+Square and Wide. Enter applies the draft, and S cancels it. F/V adjust speed
+without changing the board. Custom width/height rules still fit automatically.
 The paired USB firmware honors the chosen tick cadence, including below 100 ms;
 older firmware ticks pages every 100 ms. Actual physical frame rate can be lower
 than the requested rate if gameplay or display work takes longer.

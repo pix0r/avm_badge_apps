@@ -22,68 +22,28 @@ defmodule Badge.App.Goatwars.Art do
   @doc "Expand RLE headers: high bit repeats a byte; low seven bits store count minus one."
   def decode_rle(runs, palette), do: decode_runs(runs, palette, <<>>, [])
 
-  defp decode_runs(<<>>, palette, buffer, chunks) do
-    decode_chunks(buffer, palette, chunks)
-  end
+  defp decode_runs(<<>>, _palette, buffer, chunks), do: :erlang.iolist_to_binary(:lists.reverse([buffer | chunks]))
 
-  defp decode_runs(<<1::1, count::7, value, rest::binary>>, palette, buffer, chunks) do
-    decode_run(count + 1, value, rest, palette, buffer, chunks)
+  defp decode_runs(<<1::1, count::7, high::4, low::4, rest::binary>>, palette, buffer, chunks) do
+    pixels = :binary.copy(<<elem(palette, high)::binary, elem(palette, low)::binary>>, count + 1)
+    append(pixels, rest, palette, buffer, chunks)
   end
 
   defp decode_runs(<<0::1, count::7, bytes::binary>>, palette, buffer, chunks) do
     size = count + 1
     <<literal::binary-size(size), rest::binary>> = bytes
-    decode_literal(literal, rest, palette, buffer, chunks)
+    pixels = :erlang.list_to_binary(decode_chunk(literal, palette))
+    append(pixels, rest, palette, buffer, chunks)
   end
 
-  defp decode_literal(literal, rest, palette, <<buffer::binary-size(32)>>, chunks) do
-    bytes = :erlang.list_to_binary(decode_chunk(buffer, palette))
-    decode_literal(literal, rest, palette, <<>>, [bytes | chunks])
-  end
+  defp append(pixels, rest, palette, buffer, chunks) when byte_size(buffer) >= 1024,
+    do: decode_runs(rest, palette, pixels, [buffer | chunks])
 
-  defp decode_literal(<<>>, rest, palette, buffer, chunks) do
-    decode_runs(rest, palette, buffer, chunks)
-  end
-
-  defp decode_literal(literal, rest, palette, buffer, chunks) do
-    room = 32 - byte_size(buffer)
-    size = byte_size(literal)
-    take = if size < room, do: size, else: room
-    <<bytes::binary-size(take), remaining::binary>> = literal
-    decode_literal(remaining, rest, palette, <<buffer::binary, bytes::binary>>, chunks)
-  end
-
-  defp decode_run(count, value, rest, palette, <<buffer::binary-size(32)>>, chunks) do
-    bytes = :erlang.list_to_binary(decode_chunk(buffer, palette))
-    decode_run(count, value, rest, palette, <<>>, [bytes | chunks])
-  end
-
-  defp decode_run(0, _value, rest, palette, buffer, chunks) do
-    decode_runs(rest, palette, buffer, chunks)
-  end
-
-  defp decode_run(count, value, rest, palette, buffer, chunks) do
-    room = 32 - byte_size(buffer)
-    take = if count < room, do: count, else: room
-    bytes = :erlang.list_to_binary(:lists.duplicate(take, value))
-    decode_run(count - take, value, rest, palette, <<buffer::binary, bytes::binary>>, chunks)
-  end
-
-  defp decode_chunks(<<>>, _palette, chunks), do: :erlang.list_to_binary(:lists.reverse(chunks))
-
-  defp decode_chunks(<<chunk::binary-size(32), rest::binary>>, palette, chunks) do
-    bytes = :erlang.list_to_binary(decode_chunk(chunk, palette))
-    decode_chunks(rest, palette, [bytes | chunks])
-  end
-
-  defp decode_chunks(chunk, palette, chunks) do
-    bytes = :erlang.list_to_binary(decode_chunk(chunk, palette))
-    decode_chunks(<<>>, palette, [bytes | chunks])
-  end
+  defp append(pixels, rest, palette, buffer, chunks),
+    do: decode_runs(rest, palette, <<buffer::binary, pixels::binary>>, chunks)
 
   defp decode_chunk(<<>>, _palette), do: []
 
-  defp decode_chunk(<<high::4, low::4, rest::binary>>, palette) do
-    [elem(palette, high), elem(palette, low) | decode_chunk(rest, palette)]
-  end
+  defp decode_chunk(<<high::4, low::4, rest::binary>>, palette),
+    do: [elem(palette, high), elem(palette, low) | decode_chunk(rest, palette)]
 end

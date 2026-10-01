@@ -7,14 +7,16 @@ defmodule GoatwarsUsbLoader do
     :ok = :atomvm.add_avm_pack_binary(@main, name: :goatwars_usb_main)
     :ok = :atomvm.add_avm_pack_binary(@assets, name: :goatwars_usb_assets)
     state = Badge.App.Goatwars.Page.init(countdown_ms: 0)
-    {51, 30, bytes} = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :occupied)
-    6120 = byte_size(bytes)
+    {23, 23, bytes} = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :occupied)
+    2116 = byte_size(bytes)
     middle_result = play(state, 0)
     ^middle_result = play(Badge.App.Goatwars.Page.init(countdown_ms: 0), 0)
-    coarse = Badge.App.Goatwars.Page.init(countdown_ms: 0, rules: %{width: 24, height: 14, explosion_radius: 2, retract_speed: 8})
-    {_tick, _scores, _status} = play(coarse, 0)
-    full = Badge.App.Goatwars.Page.init(countdown_ms: 0, rules: %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8})
-    {_tick, _scores, _status} = play(full, 0)
+
+    for {width, height} <- [{14, 14}, {30, 30}, {46, 46}, {24, 14}, {39, 23}, {51, 30}, {78, 46}] do
+      state = Badge.App.Goatwars.Page.init(countdown_ms: 0, rules: %{width: width, height: height, explosion_radius: 2, retract_speed: 8})
+      {_tick, _scores, _status} = play(state, 0)
+    end
+
     :io.format(~c"Actual split USB images loaded and played on AtomVM~n")
     :ok
   end

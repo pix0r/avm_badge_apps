@@ -66,6 +66,13 @@ defmodule Badge.App.Goatwars.ArtTest do
     end
   end
 
+  test "artwork loading stays within a small decode work budget" do
+    {:reductions, before} = Process.info(self(), :reductions)
+    Enum.each(1..100, fn _ -> Art.load() end)
+    {:reductions, after_count} = Process.info(self(), :reductions)
+    assert div(after_count - before, 100) < 12000
+  end
+
   test "stored palette and packed artwork fit the asset budget" do
     assert Art.stored_bytes() > 0
     assert Art.stored_bytes() <= 3_800

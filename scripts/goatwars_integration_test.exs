@@ -50,7 +50,7 @@ defmodule GoatwarsIntegrationTest do
     Badge.UI.key_event(Badge.Keymap.decode(~c"Enter", false))
     tick()
     assert Enum.any?(Display.snapshot().items, &match?({:text, _, _, _, _, _, "3"}, &1))
-    assert Enum.any?(Display.snapshot().items, &match?({:scaled_cropped_image, _, _, _, _, _, _, _, _, _, _, {:rgba8888, 51, 30, _}}, &1))
+    assert Enum.any?(Display.snapshot().items, &match?({:scaled_cropped_image, _, _, _, _, _, _, _, _, _, _, {:rgba8888, 23, 23, _}}, &1))
     Badge.UI.key_event(Badge.Keymap.decode(~c"Left", false))
     assert :sys.get_state(Badge.UI).page_state.match.controllers[1] == :human
     Badge.UI.key_event(Badge.Keymap.decode(~c"S", false))
@@ -150,6 +150,37 @@ defmodule GoatwarsIntegrationTest do
     {:ok, paused} = Page.handle_key({:char, 32}, next.page_state)
     {:noreply, _} = Badge.UI.handle_info({:render_tick, self()}, %{next | page_state: paused})
     assert_receive {:rendered, 100}
+  end
+
+  test "game frames do not wait for the backlight settings process" do
+    install()
+    Badge.UI.goto(Page)
+    ui = :sys.get_state(Badge.UI)
+    game = Page.init(countdown_ms: 0)
+    :ok = :sys.suspend(Badge.Backlight)
+    worker = Task.async(fn -> Badge.UI.handle_info({:render_tick, self()}, %{ui | page_state: game, status_countdown: 100}) end)
+
+    try do
+      assert {:ok, {:noreply, next}} = Task.yield(worker, 200)
+      assert next.page_state.match.game.tick == 1
+    after
+      :ok = :sys.resume(Badge.Backlight)
+      Task.shutdown(worker, :brutal_kill)
+    end
+  end
+
+  test "sleep timeout updates reach the UI after store and either process restarts" do
+    Badge.Backlight.store(100, :off)
+    eventually(fn -> :sys.get_state(Badge.UI).sleep_timeout == :off end)
+    :ok = stop_supervised(Badge.UI)
+    start_ui()
+    eventually(fn -> :sys.get_state(Badge.UI).sleep_timeout == :off end)
+    :ok = stop_supervised(Badge.Backlight)
+    Badge.Sim.Nvs.put("badge", "sleep", "10s")
+    start_supervised!({Badge.Backlight, :ok})
+    eventually(fn -> :sys.get_state(Badge.UI).sleep_timeout == :s10 end)
+    {:noreply, next} = Badge.UI.handle_info(:render_tick, %{:sys.get_state(Badge.UI) | idle: 999, status_countdown: 100})
+    assert next.asleep
   end
 
   defp install do

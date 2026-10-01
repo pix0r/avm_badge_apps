@@ -62,11 +62,11 @@ manifest are not changed by building these images.
 ## First physical test
 
 1. Wait for Home. Press Right twice to reach home screen three, then press the
-   square key for GoatWars. A three-second countdown should lead into a match
-   on the new middle 51×30 board with 6-pixel cells.
+   square key for GoatWars. The title waits for Enter. A three-second countdown
+   then leads into M Square, 23×23 cells at 8 pixels per cell.
 2. Use Left/Right to take over player one. Space pauses and resumes. `S` opens
    player settings, arrows change selections, and Enter applies them. G cycles
-   small/middle/full boards; F slows down by 10 ms and V speeds up by 10 ms,
+   S/M/L/XL boards; A switches Square/Wide; F slows down by 10 ms and V speeds up by 10 ms,
    from 50–400 ms per step. Enter applies the choices.
    The default key pairs are Left/Right, Z/X, 1/2 and 9/0 for players 1–4.
 3. Press `R` to rematch. Return Home using the normal navigation key, then reopen
@@ -87,13 +87,13 @@ known firmware risk; this offline test does not establish its reliability.
 When ready to resume verification, run `mix test` and
 `python3 -m unittest discover -s test/scripts -v` in this worktree. The latter
 uses fake tools and never accesses hardware. The full host suite, including the archive-edit regression, passed when
-verification resumed on October 1. The badge now uses a simple obstacle-avoidance
-controller; its settings offer Human, AI Simple and Inactive.
+verification resumed. The badge uses bounded escape and route-interception
+checks; its settings offer Human, AI Simple and Inactive.
 
 ## Performance diagnostics
 
-Version 0.1.3 defaults to a 51×30 bitmap board and a ticker with backpressure.
-Rematches preserve board size and speed; leaving and reopening restores defaults.
+Version 0.1.4 defaults to M Square, a 23×23 bitmap board and a ticker with backpressure.
+Rematches preserve board size, aspect and speed; leaving and reopening restores defaults.
 The installer also includes firmware with a page-specific tick cadence; this is
 required for fine timing and sub-100 ms play. It requests up to 20 frames/s at
 50 ms, subject to actual VM/display throughput. No physical frame-rate claim

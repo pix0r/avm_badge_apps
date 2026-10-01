@@ -3,7 +3,7 @@ defmodule Badge.App.Goatwars.Setup do
   alias __MODULE__.Slot
   @modes [:human, :beginner, :intermediate, :expert, :pro, :inactive]
   @keys [:arrows, :zx, :one_two, :nine_zero]
-  @boards [{24, 14}, {51, 30}, {78, 46}]
+  @boards [{14, 24, "S"}, {23, 39, "M"}, {30, 51, "L"}, {46, 78, "XL"}]
 
   def new(controllers \\ %{}) do
     slots =
@@ -13,7 +13,7 @@ defmodule Badge.App.Goatwars.Setup do
       end)
       |> Map.new()
 
-    %{slots: slots, retract: true, board: {51, 30}, step_ms: 100}
+    %{slots: slots, retract: true, board: {23, 23}, step_ms: 100}
   end
 
   def controllers(setup),
@@ -29,7 +29,26 @@ defmodule Badge.App.Goatwars.Setup do
     do: mode(setup, id, cycle(modes, Map.fetch!(Map.fetch!(setup, :slots)[id], :mode), delta))
 
   def cycle_keys(setup, id), do: keys(setup, id, cycle(@keys, Map.fetch!(Map.fetch!(setup, :slots)[id], :keys), 1))
-  def cycle_board(setup), do: %{setup | board: cycle(@boards, Map.fetch!(setup, :board), 1)}
+
+  def cycle_board(%{board: {width, height}} = setup) do
+    {edge, wide, _label} = cycle(@boards, :lists.keyfind(height, 1, @boards), 1)
+    %{setup | board: {if(width == height, do: edge, else: wide), edge}}
+  end
+
+  def toggle_aspect(%{board: {width, height}} = setup) do
+    board =
+      if width == height do
+        case :lists.keyfind(height, 1, @boards) do
+          {_, wide, _} -> {wide, height}
+          false -> {div(height * 39, 23), height}
+        end
+      else
+        {height, height}
+      end
+
+    %{setup | board: board}
+  end
+
   def adjust_speed(setup, delta), do: %{setup | step_ms: min(max(Map.fetch!(setup, :step_ms) + delta, 50), 400)}
 
   def keys(setup, id, preset) do
@@ -65,6 +84,13 @@ defmodule Badge.App.Goatwars.Setup do
   def key_label(:zx), do: "Z/X"
   def key_label(:one_two), do: "1/2"
   def key_label(:nine_zero), do: "9/0"
+
+  def board_label({width, height}) do
+    case :lists.keyfind(height, 1, @boards) do
+      {_, wide, label} when width == height or width == wide -> label
+      _ -> "Custom"
+    end
+  end
 
   defp cycle(choices, current, delta) do
     index = index(choices, current, 0)

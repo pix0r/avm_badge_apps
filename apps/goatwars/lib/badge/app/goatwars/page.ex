@@ -11,27 +11,28 @@ defmodule Badge.App.Goatwars.Page do
   @impl true
   def init(options \\ []) do
     rules =
-      Keyword.get(options, :rules, %{width: 51, height: 30, explosion_radius: 2, retract_speed: 8})
+      Keyword.get(options, :rules, %{width: 23, height: 23, explosion_radius: 2, retract_speed: 8})
 
     setup = Setup.new(Keyword.get(options, :profiles, %{}))
     seed = Keyword.get(options, :seed, 1)
-    match = Match.demo(rules, seed, controllers(setup, seed), record_replay: false)
-    match = if Keyword.get(options, :compact, true), do: %{match | game: Game.compact(Map.fetch!(match, :game))}, else: match
-    config = Map.fetch!(Map.fetch!(match, :game), :config)
+    %{game: %{config: config} = game} = match = Match.demo(rules, seed, controllers(setup, seed), record_replay: false)
+    compact = Keyword.get(options, :compact, true)
+    match = if compact, do: %{match | game: Game.compact(game)}, else: match
+    %{width: width, height: height, retract_speed: retract_speed, step_ms: step_ms} = config
 
     setup = %{
       setup
-      | retract: Map.fetch!(config, :retract_speed) > 0,
-        board: {Map.fetch!(config, :width), Map.fetch!(config, :height)},
-        step_ms: Map.fetch!(config, :step_ms)
+      | retract: retract_speed > 0,
+        board: {width, height},
+        step_ms: step_ms
     }
 
     countdown = Keyword.get(options, :countdown_ms, 3000)
 
     State.new(%{
       match: match,
-      compact: Keyword.get(options, :compact, true),
-      layout: Render.layout(Map.fetch!(Map.fetch!(match, :game), :config)),
+      compact: compact,
+      layout: Render.layout(config),
       setup: setup,
       art: Art.load(),
       screen: if(countdown == 0, do: :game, else: :title),
@@ -111,6 +112,9 @@ defmodule Badge.App.Goatwars.Page do
   defp settings_key({:char, ?g}, state),
     do: {:ok, %{state | draft: Setup.cycle_board(Map.fetch!(state, :draft))}}
 
+  defp settings_key({:char, ?a}, state),
+    do: {:ok, %{state | draft: Setup.toggle_aspect(Map.fetch!(state, :draft))}}
+
   defp settings_key({:char, ?f}, state),
     do: {:ok, %{state | draft: Setup.adjust_speed(Map.fetch!(state, :draft), 10)}}
 
@@ -180,16 +184,19 @@ defmodule Badge.App.Goatwars.Page do
 
   def advance(state, now) when is_integer(state.due_at) and now < state.due_at, do: state
 
-  def advance(state, now) do
-    match = Match.tick(Map.fetch!(state, :match))
-
-    scores =
-      add_scores(:maps.to_list(Map.fetch!(match, :totals)), Map.fetch!(Map.fetch!(state, :match), :totals), Map.fetch!(state, :scores))
-
-    effects = crash_effects(Map.fetch!(match, :events), age_effects(Map.fetch!(state, :effects)))
-    game = Map.fetch!(match, :game)
-    step_ms = Map.fetch!(Map.fetch!(game, :config), :step_ms)
-    previous_due = Map.fetch!(state, :due_at)
+  def advance(
+        %{
+          match: %{totals: previous_totals} = previous_match,
+          scores: previous_scores,
+          effects: previous_effects,
+          due_at: previous_due,
+          frame: frame
+        } = state,
+        now
+      ) do
+    %{totals: totals, events: events, game: %{config: %{step_ms: step_ms}, status: status}} = match = Match.tick(previous_match)
+    scores = add_scores(:maps.to_list(totals), previous_totals, previous_scores)
+    effects = crash_effects(events, age_effects(previous_effects))
     due_at = if is_integer(previous_due) and now < previous_due + step_ms * 2, do: previous_due + step_ms, else: now + step_ms
 
     %{
@@ -198,8 +205,8 @@ defmodule Badge.App.Goatwars.Page do
         match: match,
         due_at: due_at,
         effects: effects,
-        frame: Map.fetch!(state, :frame) + 1,
-        result_until: if(Map.fetch!(game, :status) == :running, do: nil, else: now + 2000)
+        frame: frame + 1,
+        result_until: if(status == :running, do: nil, else: now + 2000)
     }
   end
 
@@ -225,40 +232,35 @@ defmodule Badge.App.Goatwars.Page do
 
   defp age_effects([_ | rest]), do: age_effects(rest)
 
-  defp restart(%{setup: %{board: {width, height}}} = state) do
-    previous = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :config)
-
-    shrink_after =
-      if {width, height} == {Map.fetch!(previous, :width), Map.fetch!(previous, :height)},
-        do: Map.fetch!(previous, :shrink_after),
-        else: 2 * (width + height) - 4
+  defp restart(
+         %{
+           setup: %{board: {width, height}, step_ms: step_ms, retract: retract} = setup,
+           match: %{game: %{config: previous}},
+           round: round,
+           compact: compact
+         } = state
+       ) do
+    %{width: old_width, height: old_height, shrink_after: old_shrink, retract_speed: old_retract} = previous
+    shrink_after = if {width, height} == {old_width, old_height}, do: old_shrink, else: 2 * (width + height) - 4
 
     config = %{
-      Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :config)
+      previous
       | width: width,
         height: height,
-        step_ms: Map.fetch!(Map.fetch!(state, :setup), :step_ms),
+        step_ms: step_ms,
         shrink_after: shrink_after,
-        retract_speed:
-          if(Map.fetch!(Map.fetch!(state, :setup), :retract),
-            do:
-              if(Map.fetch!(Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :config), :retract_speed) > 0,
-                do: Map.fetch!(Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :config), :retract_speed),
-                else: 8
-              ),
-            else: 0
-          )
+        retract_speed: if(retract, do: if(old_retract > 0, do: old_retract, else: 8), else: 0)
     }
 
-    seed = Map.fetch!(state, :round) + 1
-    match = Match.demo(config, seed, controllers(Map.fetch!(state, :setup), seed), record_replay: false)
-    match = if Map.fetch!(state, :compact), do: %{match | game: Game.compact(Map.fetch!(match, :game))}, else: match
+    seed = round + 1
+    %{game: game} = match = Match.demo(config, seed, controllers(setup, seed), record_replay: false)
+    match = if compact, do: %{match | game: Game.compact(game)}, else: match
 
     %{
       state
       | match: match,
-        layout: Render.layout(Map.fetch!(Map.fetch!(match, :game), :config)),
-        round: Map.fetch!(state, :round) + 1,
+        layout: Render.layout(config),
+        round: seed,
         result_until: nil,
         due_at: nil,
         started: false,
@@ -315,24 +317,23 @@ defmodule Badge.App.Goatwars.Page do
     Map.fetch!(state, :started) and (tick == 97 or (tick > 0 and rem(tick, 10) == 0))
   end
 
-  defp render_game(%{started: false, paused: false, launch_remaining: remaining} = state) do
-    game = Map.fetch!(Map.fetch!(state, :match), :game)
-    layout = Map.fetch!(state, :layout)
-
+  defp render_game(
+         %{started: false, paused: false, launch_remaining: remaining, match: %{game: game}, layout: layout, frame: frame} = state
+       ) do
     [
       {:text, 156, 108, :default16px, 0xFFFFFF, 0x241332, int(div(remaining + 999, 1000))},
       {:rect, 144, 102, 32, 28, 0x241332}
-    ] ++ Render.cannons(game, layout) ++ hud(state) ++ Render.scene(game, layout, Map.fetch!(state, :frame))
+    ] ++ Render.cannons(game, layout) ++ hud(state) ++ Render.scene(game, layout, frame)
   end
 
-  defp render_game(state) do
+  defp render_game(%{match: %{game: game}, layout: layout, frame: frame, art: art} = state) do
     case caption(state) do
       nil ->
         hud(state) ++
-          Render.scene(Map.fetch!(Map.fetch!(state, :match), :game), Map.fetch!(state, :layout), Map.fetch!(state, :frame))
+          Render.scene(game, layout, frame)
 
       {title, hint, color} ->
-        Render.Interstitial.scene(Map.fetch!(state, :art), title, hint, color) ++ hud(state)
+        Render.Interstitial.scene(art, title, hint, color) ++ hud(state)
     end
   end
 
@@ -408,7 +409,8 @@ defmodule Badge.App.Goatwars.Page do
     text(8, 29, "PLAYER SETTINGS", 0xFFFFFF) ++
       rows ++
       text(8, 144, "R: Retract " <> if(Map.fetch!(setup, :retract), do: "ON", else: "OFF"), 0xFFFFFF) ++
-      text(8, 162, "G: Board " <> int(width) <> "x" <> int(height), 0xFFFFFF) ++
+      text(176, 144, "A: " <> if(width == height, do: "Square", else: "Wide"), 0xFFFFFF) ++
+      text(8, 162, "G: Board " <> Setup.board_label({width, height}) <> " " <> int(width) <> "x" <> int(height), 0xFFFFFF) ++
       text(8, 180, "F/V: Step " <> int(Map.fetch!(setup, :step_ms)) <> "ms", 0xFFFFFF) ++
       text(8, 198, "Arrows: mode  C: keys", 0xA4B8C9) ++
       text(8, 217, hint, 0xFFFFFF) ++

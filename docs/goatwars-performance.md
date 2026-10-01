@@ -1,14 +1,77 @@
 # GoatWars performance verification
 
-The latest October 1 build defaults to a 51×30 board with 6-pixel cells and a
-fixed 6,120-byte RGBA bitmap. In settings, G cycles 24×14, 51×30 and 78×46;
-F adds 10 ms and V subtracts 10 ms per step, within 50–400 ms. Enter applies both choices, S cancels,
-and rematches retain them. Paths are packed coordinate binaries. Rendering submits one
-scaled board image. The board background is solid; the former grid lines are omitted.
-Headless matches still use maps. The firmware ticker waits for a completed UI
-callback before requesting another frame, preventing a backlog ahead of keys.
+Version 0.1.4 defaults to **M Square**, 23×23 cells at 8 pixels per cell,
+with a 2,116-byte opaque RGBA bitmap. Settings G cycles S/M/L/XL and A switches
+Square/Wide. Step durations remain 50–400 ms in 10 ms increments (F slower,
+V faster). Enter applies the draft; S cancels; rematches retain all choices.
 
-## Middle board and configurable pace
+| Size | Square | Wide | Cell pixels |
+|---|---|---|---|
+| S | 14×14 | 24×14 | 13 |
+| M | 23×23 | 39×23 | 8 |
+| L | 30×30 | 51×30 | 6 |
+| XL | 46×46 | 78×46 | 4 |
+
+The square arena gives each edge the same room. Even-sized squares alternate
+between the two central edge cells so spawns match under a 90-degree rotation.
+Rendering fits custom dimensions to 312×184 pixels; the HUD stays outside that area.
+M Square uses 65.4% fewer board bytes than the previous 51×30 default.
+
+## Further CPU optimization, October 2
+
+The baseline is the current AI/artwork build `fb8d65c`, preserving those newer
+commits. Shared opponent routes remove duplicate forecasts across goats; bounded
+runway checks and direct bitmap decoding reduce per-step work. Sixteen recorded
+seed/size replays remain identical. A failed-first host budget now caps a
+four-goat advance/render at 1,250 reductions, down from a 2,500 limit. Artwork
+loading fell from about 25,108 to 10,270 host reductions while preserving both
+SHA-256 pixel hashes. Host reductions measure work, not badge timing.
+
+Firmware caches the Backlight sleep timeout and receives updates on save or
+process restart. Gameplay frames no longer synchronously call Backlight.settings.
+A suspended Backlight process no longer blocks a game frame. The asynchronous
+startup handshake also supports UI starting before Backlight.
+
+The final same-workload comparison against `fb8d65c` ran five 78×46 rounds,
+1,320 ticks, and all 264 actual C raster frames:
+
+| Measured work | Before | After | Gain |
+|---|---:|---:|---:|
+| Page initialization | 14,893 µs | 3,723 µs | 4.00× |
+| Mean gameplay + frame construction | 588.41 µs | 444.89 µs | 1.32× |
+| Mean native raster | 88.61 µs | 88.92 µs | approximately unchanged |
+| Construction + raster | 677.02 µs | 533.81 µs | **1.27×** |
+
+The **2× gameplay gate fails**. This is an improvement, not achievement of that
+target. Initialization is measured separately; artwork decoding is excluded from
+the gameplay loop because rematches reuse it. Seven framebuffer hashes, including
+tick 97 and the terminal artwork frame, match the baseline. The comparison uses
+identical full-size rounds; changing the default size is not counted as CPU gain.
+An earlier batched-head-copy prototype increased code size without a useful
+whole-round benefit and was removed.
+
+All eight size/aspect combinations pass 100 seeded rounds at each of
+4,096/8,192/16,384 heap words: **2,400 rounds** total. Peak retained page state
+in those soaks is 631 words; sampled binary memory peaks at 66,716 bytes. The
+M Square soak peaks at 50,916 binary bytes, and its 32-frame retained queue peaks
+at 118,048 bytes (XL Wide queue: 523,548). These are native 64-bit VM measurements,
+not total ESP32 RAM/PSRAM usage.
+
+188 apps tests, 1,408 firmware tests (two asset cases excluded), seven fake-hardware
+UI scenarios, nine Python comparison/installer tests and three native pixel tests
+pass. The Store pack is 65,476/65,536 bytes. USB firmware is 668,312/671,744 bytes;
+assets are 262,144/262,144. Actual split images and Store pack load and play on
+the pinned VM with the released boot pack. AtomVM imports and all 63 instructions
+in 21 game modules resolve; firmware checking reports 30 known warnings, and the whole-app check reports 38.
+The strict game audit resolves every runtime import.
+
+Evidence: `/private/tmp/beamwars-readiness/goatwars-square-final-benchmark` and
+`/private/tmp/beamwars-readiness/goatwars-square-final-native`.
+No badge was accessed. SPI transfer, scheduler contention and physical gameplay
+feel remain unmeasured; removal of the blocking Backlight call is not assigned a
+synthetic physical speedup.
+
+## Earlier middle board and configurable pace
 
 Version 0.1.3 uses 10 ms adjustments, F slower and V faster, bounded at 50–400 ms.
 The earlier 100 ms floor was the firmware ticker, not a measured panel limit.
@@ -179,6 +242,8 @@ export ATOMVM_BUILD="$ATOMVM_SOURCE/release"
 export ATOMVM_BOOT_PACK=/private/tmp/beamwars-readiness/base-release/boot.avm
 export ATOMGL_SOURCE=/private/tmp/beamwars-readiness/atomgl-inspect
 export GOATWARS_RESULTS="$PWD/_build/goatwars-performance"
+export GOATWARS_BASELINE_REF=fb8d65c
+export GOATWARS_MIN_SPEEDUP=2
 
 mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- ./scripts/goatwars_benchmark.sh
 mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- ./scripts/goatwars_raster.sh "$GOATWARS_RESULTS"

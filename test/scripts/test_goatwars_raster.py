@@ -24,6 +24,19 @@ class CroppedRasterTest(unittest.TestCase):
             self.assertEqual(set(colors), {0xFFFF, 0x0004})
             self.assertEqual(struct.unpack_from(">H", pixels, (2*320+2)*2)[0], 0x07E0)
 
+    def test_artwork_transparency_uses_its_declared_background(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = pathlib.Path(folder)
+            image = root / "transparent.rgba"
+            image.write_bytes(bytes([255, 0, 0, 0]))
+            scene = root / "art.scene"
+            scene.write_text(f"2\n2 4 4 2 2 2364210 0 0 2 2 1 1 {image}\n0 0 0 320 240 65280 \n")
+            output = root / "frame.rgb565"
+            result = subprocess.run([EXE, str(scene)], env=dict(os.environ, GOATWARS_FRAME_DUMP=str(output)), capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            pixels = output.read_bytes()
+            self.assertEqual(struct.unpack_from(">H", pixels, (4*320+4)*2)[0], 0x2086)
+
     def test_crop_scale_and_rgba_colors_reach_the_actual_driver(self):
         with tempfile.TemporaryDirectory() as folder:
             root = pathlib.Path(folder)

@@ -4,7 +4,7 @@ defmodule Badge.App.Goatwars.Match do
   headless simulation. Controller entries are `:human` or `{module, memory}`.
   Replay commands are stored newest first, one entry per completed tick.
   """
-  alias Badge.App.Goatwars.{Bot, Config, Game, State}
+  alias Badge.App.Goatwars.{Bot, Config, Game, SimpleBot, State}
 
   @type t :: %{
           game: State.t(),
@@ -32,15 +32,14 @@ defmodule Badge.App.Goatwars.Match do
 
   @doc "Creates a deterministic four-bot match with edge-midpoint spawns."
   def demo(rules \\ %{width: 64, height: 36}, seed \\ 1, profiles \\ %{}, options \\ []) do
-    {:ok, config} = Config.new(rules)
-    w = Map.fetch!(config, :width)
-    h = Map.fetch!(config, :height)
+    {:ok, %{width: w, height: h} = config} = Config.new(rules)
+    {top_x, right_y} = if w == h, do: {div(w - 1, 2), div(h - 1, 2)}, else: {div(w, 2), div(h, 2)}
 
     roster = [
       %{id: 1, position: {div(w, 2), h - 1}, direction: :north},
-      %{id: 2, position: {div(w, 2), 0}, direction: :south},
+      %{id: 2, position: {top_x, 0}, direction: :south},
       %{id: 3, position: {0, div(h, 2)}, direction: :east},
-      %{id: 4, position: {w - 1, div(h, 2)}, direction: :west}
+      %{id: 4, position: {w - 1, right_y}, direction: :west}
     ]
 
     roster = Enum.reject(roster, &(Map.get(profiles, Map.fetch!(&1, :id)) == :inactive))
@@ -83,7 +82,7 @@ defmodule Badge.App.Goatwars.Match do
   def tick(%{game: %{status: status}} = match) when status != :running, do: match
 
   def tick(%{game: game, controllers: controllers, pending: pending, scores: scores, replay: replay, record_replay: record} = match) do
-    {turns, controllers} = choose_all(Game.living(game), game, pending, controllers, %{})
+    {turns, controllers} = choose_all(Game.living(game), game, pending, controllers, %{}, nil)
     {:ok, game, events} = Game.step(game, turns)
     %{players: players, config: %{points_per_tick: points, bonus_start: start, bonus_decay: decay}, tick: tick, status: status} = game
     scores = score_players(:maps.to_list(players), scores, points)
@@ -115,22 +114,26 @@ defmodule Badge.App.Goatwars.Match do
     }
   end
 
-  defp choose_all([], _game, _pending, controllers, turns), do: {turns, controllers}
+  defp choose_all([], _game, _pending, controllers, turns, _prepared), do: {turns, controllers}
 
-  defp choose_all([%{id: id} | rest], game, pending, controllers, turns) do
-    {turn, controllers} =
+  defp choose_all([%{id: id} | rest], game, pending, controllers, turns, prepared) do
+    {turn, controllers, prepared} =
       case Map.fetch!(controllers, id) do
         :human ->
-          {Map.get(pending, id), controllers}
+          {Map.get(pending, id), controllers, prepared}
 
         {module, memory} ->
-          {turn, next_memory} = module.choose(game, id, memory)
+          prepared = if module == SimpleBot and prepared == nil, do: SimpleBot.prepare(game), else: prepared
+
+          {turn, next_memory} =
+            if module == SimpleBot, do: SimpleBot.choose_prepared(prepared, id, memory), else: module.choose(game, id, memory)
+
           controllers = if next_memory === memory, do: controllers, else: Map.put(controllers, id, {module, next_memory})
-          {turn, controllers}
+          {turn, controllers, prepared}
       end
 
     turns = if turn == nil, do: turns, else: Map.put(turns, id, turn)
-    choose_all(rest, game, pending, controllers, turns)
+    choose_all(rest, game, pending, controllers, turns, prepared)
   end
 
   defp score_players([], scores, _points), do: scores

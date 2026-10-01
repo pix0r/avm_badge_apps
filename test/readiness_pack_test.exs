@@ -4,6 +4,12 @@ defmodule GoatwarsPackReadinessTest do
 
   test "the complete GoatWars pack fits the badge and uses its namespace only" do
     beams = Pack.beams!(Mix.Project.compile_path(), "goatwars")
+
+    for beam <- beams do
+      {:ok, {_, [{:imports, imports}]}} = :beam_lib.chunks(String.to_charlist(beam), [:imports])
+      refute Enum.any?(imports, fn {module, _, _} -> module == :elixir_erl_pass end)
+    end
+
     sources = Path.wildcard("apps/goatwars/lib/**/*.ex")
     assert length(beams) == length(sources)
     path = Path.join(System.tmp_dir!(), "goatwars_pack_#{System.unique_integer([:positive])}.avm")

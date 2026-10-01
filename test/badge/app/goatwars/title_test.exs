@@ -40,7 +40,7 @@ defmodule Badge.App.Goatwars.TitleTest do
     assert Page.advance(canceled, 5000).match.game.tick == 0
     {:ok, game} = Page.handle_key(:enter, changed)
     assert game.screen == :game
-    assert {game.match.game.config.width, game.match.game.config.height} == {78, 46}
+    assert {game.match.game.config.width, game.match.game.config.height} == {30, 30}
     assert game.launch_remaining == 3000
   end
 

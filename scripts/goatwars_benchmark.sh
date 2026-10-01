@@ -9,7 +9,7 @@ out="${GOATWARS_RESULTS:-$(mktemp -d "${TMPDIR:-/tmp}/goatwars-benchmark.XXXXXX"
 baseline="${GOATWARS_BASELINE_REF:-a1e6f4b}"
 [[ "$(git -C "$source" rev-parse HEAD)" == a08e9fc1e20131e0d2b1432691ea198020bce0ff ]] || { echo "Wrong VM" >&2; exit 1; }
 mkdir -p "$out/baseline/source" "$out/baseline/beams" "$out/current/beams"
-git -C "$root" archive "$baseline" apps/goatwars/lib | tar -x -C "$out/baseline/source"
+git -C "$root" archive "$baseline" apps/goatwars | tar -x -C "$out/baseline/source"
 elixir -e 'expected="652d98edf174ea7ec650b9e573a4cb479fbf99fc7d017cddfdebe4fd97f2adbf"; actual=:crypto.hash(:sha256, File.read!(hd(System.argv()))) |> Base.encode16(case: :lower); if actual != expected, do: raise("Wrong boot pack")' "$boot"
 for variant in baseline current; do
   if [[ "$variant" == baseline ]]; then code="$out/baseline/source"; else code="$root"; fi

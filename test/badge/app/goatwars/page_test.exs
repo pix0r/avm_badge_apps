@@ -13,38 +13,78 @@ defmodule Badge.App.Goatwars.PageTest do
     end
   end
 
-  test "middle default fills the screen with a bounded bitmap" do
+  test "square middle default fits the screen with a bounded bitmap" do
     state = Page.init(countdown_ms: 0)
-    assert {51, 30, bytes} = state.match.game.occupied
-    assert byte_size(bytes) == 6120
-    assert state.layout.cell == 6
+    assert {23, 23, bytes} = state.match.game.occupied
+    assert byte_size(bytes) == 2116
+    assert state.layout.cell == 8
     assert length(Page.render(state)) <= 26
     assert state.match.game.config.step_ms == 100
   end
 
   test "settings can compare board sizes and rematches retain the selected size" do
     state = Page.init(countdown_ms: 0)
-    {:ok, settings} = Page.handle_key({:char, ?s}, state)
-    {:ok, settings} = Page.handle_key({:char, ?g}, settings)
-    assert state.match.game.config.width == 51
-    assert Page.advance(settings, 5000).match == state.match
-    {:ok, full} = Page.handle_key(:enter, settings)
-    assert {78, 46, _} = full.match.game.occupied
-    assert full.layout.cell == 4
-    assert full.match.game.arena.next_shrink_tick == 244
-    {:ok, rematch} = Page.handle_key({:char, ?r}, full)
-    assert rematch.match.game.config.width == 78
-    {:ok, settings} = Page.handle_key({:char, ?s}, rematch)
-    {:ok, settings} = Page.handle_key({:char, ?g}, settings)
-    {:ok, coarse} = Page.handle_key(:enter, settings)
-    assert {24, 14, _} = coarse.match.game.occupied
-    assert coarse.match.game.arena.next_shrink_tick == 72
-    {:ok, settings} = Page.handle_key({:char, ?s}, coarse)
-    {:ok, settings} = Page.handle_key({:char, ?g}, settings)
-    {:ok, middle} = Page.handle_key(:enter, settings)
-    assert {51, 30, _} = middle.match.game.occupied
-    assert middle.layout.cell == 6
-    assert middle.match.game.arena.next_shrink_tick == 158
+
+    Enum.reduce([{30, 30, "L", 6, 116}, {46, 46, "XL", 4, 180}, {14, 14, "S", 13, 52}, {23, 23, "M", 8, 88}], state, fn {width, height,
+                                                                                                                         label, cell,
+                                                                                                                         fence},
+                                                                                                                        state ->
+      {:ok, settings} = Page.handle_key({:char, ?s}, state)
+      {:ok, settings} = Page.handle_key({:char, ?g}, settings)
+      assert Page.advance(settings, 5000).match == state.match
+      labels = for {:text, _, _, _, _, _, text} <- Page.render(settings), do: text
+      assert ("G: Board " <> label <> " " <> Integer.to_string(width) <> "x" <> Integer.to_string(height)) in labels
+      {:ok, selected} = Page.handle_key(:enter, settings)
+      assert {^width, ^height, _} = selected.match.game.occupied
+      assert selected.layout.cell == cell
+      assert selected.match.game.arena.next_shrink_tick == fence
+      {:ok, rematch} = Page.handle_key({:char, ?r}, selected)
+      assert rematch.match.game.config.width == width
+      rematch
+    end)
+  end
+
+  test "square and wide aspects retain size and speed through settings and rematches" do
+    for {square, wide, label} <- [{14, 24, "S"}, {23, 39, "M"}, {30, 51, "L"}, {46, 78, "XL"}] do
+      state = Page.init(countdown_ms: 0, rules: %{width: square, height: square, step_ms: 130})
+      {:ok, settings} = Page.handle_key({:char, ?s}, state)
+      labels = for {:text, _, _, _, _, _, text} <- Page.render(settings), do: text
+      assert "A: Square" in labels
+      assert ("G: Board " <> label <> " " <> Integer.to_string(square) <> "x" <> Integer.to_string(square)) in labels
+      {:ok, wide_settings} = Page.handle_key({:char, ?a}, settings)
+      {:ok, canceled} = Page.handle_key({:char, ?s}, wide_settings)
+      assert canceled.setup.board == {square, square}
+      {:ok, game} = Page.handle_key(:enter, wide_settings)
+      assert game.setup.board == {wide, square}
+      assert game.match.game.config.step_ms == 130
+      assert game.match.game.arena.next_shrink_tick == 2 * (wide + square) - 4
+      {:ok, rematch} = Page.handle_key({:char, ?r}, game)
+      assert rematch.setup.board == {wide, square}
+      {:ok, settings} = Page.handle_key({:char, ?s}, rematch)
+      assert Enum.any?(Page.render(settings), &match?({:text, _, _, _, _, _, "A: Wide"}, &1))
+      {:ok, settings} = Page.handle_key({:char, ?a}, settings)
+      {:ok, square_game} = Page.handle_key(:enter, settings)
+      assert square_game.setup.board == {square, square}
+      assert square_game.match.game.arena.next_shrink_tick == 4 * square - 4
+      assert square_game.layout.cell == game.layout.cell
+    end
+  end
+
+  test "square spawn distances and rendering remain symmetric at all four sizes" do
+    for edge <- [14, 23, 30, 46] do
+      state = Page.init(countdown_ms: 0, rules: %{width: edge, height: edge})
+      players = state.match.game.players
+      assert players[1].position == {div(edge, 2), edge - 1}
+      assert players[2].position == {div(edge - 1, 2), 0}
+      assert players[3].position == {0, div(edge, 2)}
+      assert players[4].position == {edge - 1, div(edge - 1, 2)}
+      spawns = for {_, player} <- players, do: player.position
+      rotated = for {x, y} <- spawns, do: {edge - 1 - y, x}
+      assert MapSet.new(rotated) == MapSet.new(spawns)
+      assert state.layout.x * 2 + edge * state.layout.cell == 320
+      assert state.layout.y >= 24
+      assert state.layout.y + edge * state.layout.cell <= 208
+    end
   end
 
   test "settings apply slower steps independently of board size and preserve them on rematch" do
@@ -54,12 +94,12 @@ defmodule Badge.App.Goatwars.PageTest do
     assert settings.match.game.config.step_ms == 100
     labels = for {:text, _, _, _, _, _, label} <- Page.render(settings), do: label
     assert "F/V: Step 110ms" in labels
-    assert "G: Board 51x30" in labels
+    assert "G: Board M 23x23" in labels
     assert "Z/X" in labels
     assert "1/2" in labels
     assert "9/0" in labels
     {:ok, slow} = Page.handle_key(:enter, settings)
-    assert slow.match.game.config.width == 51
+    assert slow.match.game.config.width == 23
     slow = slow |> Page.advance(0) |> Page.advance(3000)
     assert slow.match.game.tick == 1
     assert Page.advance(slow, 3109).match.game.tick == 1
@@ -69,7 +109,7 @@ defmodule Badge.App.Goatwars.PageTest do
     {:ok, settings} = Page.handle_key({:char, ?s}, rematch)
     {:ok, settings} = Page.handle_key({:char, ?g}, settings)
     {:ok, full} = Page.handle_key(:enter, settings)
-    assert full.match.game.config.width == 78
+    assert full.match.game.config.width == 30
     assert full.match.game.config.step_ms == 110
   end
 
@@ -239,8 +279,8 @@ defmodule Badge.App.Goatwars.PageTest do
   test "GoatWars shows bottom scores and board energy without a round or shrink label" do
     state = Page.init(countdown_ms: 0)
     assert Page.title() == "GoatWars"
-    assert state.match.game.config.width == 51
-    assert state.match.game.config.height == 30
+    assert state.match.game.config.width == 23
+    assert state.match.game.config.height == 23
     labels = for {:text, _, _, _, _, _, label} <- Page.render(state), do: label
     assert "Energy" in labels
     refute Enum.any?(labels, &(String.contains?(&1, "ROUND") or String.contains?(&1, "SHRINK")))

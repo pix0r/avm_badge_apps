@@ -14,10 +14,11 @@ GOATWARS_RASTER_EXE="$out/raster/bench" python3 -m unittest discover -s "$root/t
 for variant in baseline current; do
   elixir "$root/scripts/goatwars_raster_export.exs" "$out/$variant/beams" "$out/$variant/scenes"
   : > "$out/$variant/raster.log"
-  for tick in {1..207}; do
+  frames="$(cat "$out/$variant/scenes/frames")"
+  for ((tick=1; tick<=frames; tick++)); do
     "$out/raster/bench" "$out/$variant/scenes/$tick.scene" >> "$out/$variant/raster.log"
   done
-  for size in 24x14 78x46; do
+  for size in 14x14 23x23 30x30 46x46 24x14 39x23 51x30 78x46; do
     "$out/raster/bench" "$out/$variant/scenes/$size.scene" > "$out/$variant/$size-raster.log"
   done
 done

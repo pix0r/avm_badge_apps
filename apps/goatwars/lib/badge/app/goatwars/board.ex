@@ -12,11 +12,17 @@ defmodule Badge.App.Goatwars.Board do
     offset = (y * width + x) * 4
 
     case bytes do
-      <<_::binary-size(offset), 255, 209, 102, 255, _::binary>> -> 1
-      <<_::binary-size(offset), 93, 226, 180, 255, _::binary>> -> 2
-      <<_::binary-size(offset), 255, 122, 144, 255, _::binary>> -> 3
-      <<_::binary-size(offset), 189, 167, 255, 255, _::binary>> -> 4
-      _ -> nil
+      <<_::binary-size(offset), color::24, 255, _::binary>> ->
+        case color do
+          0xFFD166 -> 1
+          0x5DE2B4 -> 2
+          0xFF7A90 -> 3
+          0xBDA7FF -> 4
+          _ -> nil
+        end
+
+      _ ->
+        nil
     end
   end
 

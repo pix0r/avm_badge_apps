@@ -1,8 +1,32 @@
 # GoatWars hardware-free readiness
 
-Current title, countdown and badge-AI evidence is recorded below. Earlier
+Current square-board evidence is recorded below. Earlier
 optimization measurements are in [performance verification](goatwars-performance.md).
 The remaining sections record earlier readiness stages.
+
+## October 2 square presets and further optimization
+
+Version 0.1.4 adds four named sizes and a Square/Wide switch. M Square (23×23,
+8-pixel cells) is the default. Square spawns are rotationally symmetric, including
+even dimensions. Size, aspect and 50–400 ms speed remain independent settings;
+Enter applies, S cancels and rematches retain them. Custom dimensions still fit.
+The current title, artwork, countdown and attacking AI remain in place.
+
+Shared opponent forecasts and bounded runway checks reduce gameplay work without
+changing sixteen recorded seeded replays. The faster artwork decoder preserves
+both pixel hashes. Firmware receives sleep-timeout updates instead of blocking
+on Backlight.settings every frame; fake-peripheral tests cover a suspended
+Backlight, saving settings, and either process restarting.
+
+Host verification passes 188 apps tests, 1,408 firmware tests (two asset cases
+excluded), and seven real UI integration scenarios. The game pack is 65,476 bytes,
+60 bytes under the Store limit; the USB main is 668,312/671,744 bytes and assets
+are 262,144/262,144. The strict native audit resolves all imports and 63 instruction
+types in 21 modules. A failing-first host check now catches the unsupported
+Elixir map-access compiler fallback too.
+
+Final native CPU and memory measurements are in [performance verification](goatwars-performance.md).
+These checks do not establish a physical frame rate. No badge was accessed.
 
 ## October 1 title, countdown and opponent update
 
@@ -44,7 +68,7 @@ operation on physical hardware. In particular, the selected firmware documents
 an ESP32 SSL crash risk in Store HTTPS downloads. That delivery path remains a
 known unresolved hardware risk.
 
-## Acceptance evidence
+## Earlier acceptance evidence
 
 | Gate | Result |
 | --- | --- |
