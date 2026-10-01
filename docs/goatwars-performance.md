@@ -52,6 +52,33 @@ The bitmap adds a fixed off-heap buffer; the live-heap reduction is not an
 fonts, radio tasks, DMA and driver allocations. Physical internal-RAM behaviour
 remains a later check.
 
+## Knockout follow-up
+
+The follow-up replaces the expanding pixel burst with a brief `BAA!` in the
+eliminated goat's round-score slot. Its numeric score returns after six frames;
+scoring and collision blasts are unchanged. The shrinking fence now flashes
+using its existing four border segments instead of individual ring marks.
+Blast and trail clearing batch bitmap deletions rather than copying the entire
+board once per removed cell.
+
+Compared with committed build `9d0a21b`, the same six knockout frames at ticks
+31–36 on the pinned tools give these mean costs:
+
+| Work | Before | After | Improvement |
+| --- | ---: | ---: | ---: |
+| Native frame construction | 581.7 µs | 97.8 µs | 5.95× |
+| Pinned C raster | 863.1 µs | 210.8 µs | 4.10× |
+| Construction + raster | 1,444.8 µs | 308.6 µs | 4.68× |
+| Warning construction at tick 240 | 1,245 µs | 100 µs | 12.45× |
+| Peak drawing commands during these knockouts | 125 | 23 | bounded |
+
+The benchmark now samples each knockout frame, the terminal frame and a
+synthetic pre-contraction warning. Batched clearing did not materially change
+native gameplay CPU in this run; its benefit is fewer full-board copies.
+These measurements exclude hardware display transfers and scheduling.
+Logs and all 207 rasterized scenes are in
+`/private/tmp/beamwars-readiness/goatwars-death-benchmark`.
+
 ## Repeat the local measurements
 
 Run from this apps worktree. The pinned native tools are already available on

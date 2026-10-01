@@ -146,14 +146,23 @@ defmodule Badge.App.Goatwars.Game do
   defp retract([], occupied, _id, _count), do: {occupied, []}
   defp retract(<<>>, occupied, _id, _count), do: {occupied, <<>>}
 
-  defp retract(<<x::16, y::16, rest::binary>>, occupied, id, count) do
-    occupied = if Board.get(occupied, {x, y}) == id, do: Board.delete(occupied, {x, y}), else: occupied
-    retract(rest, occupied, id, count - 1)
+  defp retract(trail, occupied, id, count) do
+    {remaining, cells} = retract_cells(trail, occupied, id, count, [])
+    {Board.delete_many(occupied, cells), remaining}
   end
 
-  defp retract([cell | rest], occupied, id, count) do
-    occupied = if Board.get(occupied, cell) == id, do: Board.delete(occupied, cell), else: occupied
-    retract(rest, occupied, id, count - 1)
+  defp retract_cells(trail, _occupied, _id, 0, cells), do: {trail, cells}
+  defp retract_cells([], _occupied, _id, _count, cells), do: {[], cells}
+  defp retract_cells(<<>>, _occupied, _id, _count, cells), do: {<<>>, cells}
+
+  defp retract_cells(<<x::16, y::16, rest::binary>>, occupied, id, count, cells) do
+    cells = if Board.get(occupied, {x, y}) == id, do: [{x, y} | cells], else: cells
+    retract_cells(rest, occupied, id, count - 1, cells)
+  end
+
+  defp retract_cells([cell | rest], occupied, id, count, cells) do
+    cells = if Board.get(occupied, cell) == id, do: [cell | cells], else: cells
+    retract_cells(rest, occupied, id, count - 1, cells)
   end
 
   defp clear_blasts(occupied, _crashes, 0), do: occupied
@@ -163,15 +172,14 @@ defmodule Badge.App.Goatwars.Game do
   defp clear_blasts(occupied, crashes, radius) do
     offsets = :lists.seq(-radius, radius)
 
-    Enum.reduce(crashes, occupied, fn {:crashed, _, {cx, cy}}, occupied ->
-      Enum.reduce(offsets, occupied, fn dx, occupied ->
-        Enum.reduce(offsets, occupied, fn dy, occupied ->
-          if dx * dx + dy * dy <= radius * radius,
-            do: Board.delete(occupied, {cx + dx, cy + dy}),
-            else: occupied
-        end)
-      end)
-    end)
+    cells =
+      for {:crashed, _, {cx, cy}} <- crashes,
+          dx <- offsets,
+          dy <- offsets,
+          dx * dx + dy * dy <= radius * radius,
+          do: {cx + dx, cy + dy}
+
+    Board.delete_many(occupied, cells)
   end
 
   @doc "Living players, ordered by stable ID."

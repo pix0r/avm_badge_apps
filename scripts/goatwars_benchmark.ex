@@ -4,7 +4,7 @@ defmodule GoatwarsBenchmark do
   def start do
     :io.format(~c"GW_BENCH word_bytes=~p~n", [:erlang.system_info(:wordsize)])
 
-    for tick <- [0, 32, 64, 96, 97, 128, 192] do
+    for tick <- [0, 30, 31, 32, 33, 34, 35, 36, 64, 96, 97, 128, 192, 207] do
       state = build(Page.init(countdown_ms: 0), 0, tick)
       now = tick * 100
       measure(~c"tick", state, fn -> Page.advance(state, now) end)
@@ -12,6 +12,12 @@ defmodule GoatwarsBenchmark do
       measure(~c"frame", state, fn -> Page.render(Page.advance(state, now)) end)
       :io.format(~c"GW_STATE tick=~p words=~p items=~p~n", [tick, :erts_debug.flat_size(state), length(Page.render(state))])
     end
+
+    state = build(Page.init(countdown_ms: 0), 0, 192)
+    match = Map.fetch!(state, :match)
+    state = %{state | match: %{match | game: %{Map.fetch!(match, :game) | tick: 240}}}
+    measure(~c"render", state, fn -> Page.render(state) end)
+    :io.format(~c"GW_STATE tick=240 words=~p items=~p~n", [:erts_debug.flat_size(state), length(Page.render(state))])
 
     started = :erlang.monotonic_time(:microsecond)
     ticks = rounds(5, 0)

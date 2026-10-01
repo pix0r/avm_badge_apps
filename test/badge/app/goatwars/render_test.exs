@@ -1,6 +1,17 @@
 defmodule Badge.App.Goatwars.RenderTest do
   use ExUnit.Case, async: true
-  alias Badge.App.Goatwars.{Match, Render}
+  alias Badge.App.Goatwars.{Game, Match, Render}
+
+  test "contraction warning has a bounded drawing budget on a full size board" do
+    game = Game.compact(Match.demo(%{width: 78, height: 46, shrink_after: 12, warning_ticks: 4}).game)
+    game = %{game | tick: 8}
+    layout = Render.layout(game.config)
+    warning = Render.scene(game, layout, 0)
+    quiet = Render.scene(%{game | tick: 0}, layout, 0)
+    assert length(warning) <= length(quiet) + 4
+    assert Enum.any?(warning, &match?({:rect, _, _, _, _, 0xFF694D}, &1))
+    refute Enum.any?(Render.scene(game, layout, 2), &match?({:rect, _, _, _, _, 0xFF694D}, &1))
+  end
 
   test "layout fits the configured board into badge content space" do
     match = Match.demo(%{width: 64, height: 36}, 1)
@@ -47,16 +58,6 @@ defmodule Badge.App.Goatwars.RenderTest do
     assert game.occupied[{0, 0}] == 1
   end
 
-  test "death effects use the player's color and cannons are present before launch" do
-    match = Match.demo(%{width: 78, height: 46, explosion_radius: 2})
-    layout = Render.layout(match.game.config)
-    effects = [Render.Explosion.new(2, {39, 23})]
-    items = Render.explosions(effects, layout, match.game)
-    assert items != []
-    assert Enum.all?(items, fn {:rect, _, _, _, _, color} -> color == Render.color(2) end)
-    assert Render.cannons(match.game, layout) != []
-  end
-
   test "cannons expose colored emitters at all four launch edges" do
     match = Match.demo(%{width: 78, height: 46})
     layout = Render.layout(match.game.config)
@@ -73,18 +74,6 @@ defmodule Badge.App.Goatwars.RenderTest do
         end)
 
       assert elem(visible, 5) == Render.color(id)
-    end
-  end
-
-  test "explosion pixels never hide uncleared trails outside the collision blast" do
-    match = Match.demo(%{width: 78, height: 46, explosion_radius: 2})
-    layout = Render.layout(match.game.config)
-    effect = Render.Explosion.new(2, {39, 23}, 5)
-
-    for {:rect, x, y, 1, 1, _} <- Render.explosions([effect], layout, match.game) do
-      dx = div(x - layout.x, layout.cell) - 39
-      dy = div(y - layout.y, layout.cell) - 23
-      assert dx * dx + dy * dy <= 4
     end
   end
 end

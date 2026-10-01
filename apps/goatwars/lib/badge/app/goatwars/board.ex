@@ -41,6 +41,29 @@ defmodule Badge.App.Goatwars.Board do
   def delete(board, position) when is_map(board), do: Map.delete(board, position)
   def delete(board, position), do: put(board, position, nil)
 
+  @doc "Clears a group of cells with one bitmap copy."
+  def delete_many(board, []), do: board
+
+  def delete_many(board, cells) when is_map(board),
+    do: Enum.reduce(cells, board, fn cell, board -> Map.delete(board, cell) end)
+
+  def delete_many({width, height, bytes} = board, cells) do
+    offsets = for {x, y} = cell <- cells, get(board, cell) != nil, do: (y * width + x) * 4
+
+    case :lists.usort(offsets) do
+      [] -> board
+      offsets -> {width, height, clear_chunks(bytes, offsets, 0, [])}
+    end
+  end
+
+  defp clear_chunks(bytes, [], cursor, chunks),
+    do: :erlang.iolist_to_binary(:lists.reverse([:binary.part(bytes, cursor, byte_size(bytes) - cursor) | chunks]))
+
+  defp clear_chunks(bytes, [offset | rest], cursor, chunks) do
+    prefix = :binary.part(bytes, cursor, offset - cursor)
+    clear_chunks(bytes, rest, offset + 4, [pixel(nil), prefix | chunks])
+  end
+
   defp pixel(1), do: <<0, 0, 255, 255>>
   defp pixel(2), do: <<255, 0, 0, 255>>
   defp pixel(3), do: <<0, 255, 0, 255>>

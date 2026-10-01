@@ -248,7 +248,6 @@ defmodule Badge.App.Goatwars.Page do
 
   defp render_game(state) do
     overlay(state) ++
-      Render.explosions(Map.fetch!(state, :effects), Map.fetch!(state, :layout), Map.fetch!(Map.fetch!(state, :match), :game)) ++
       hud(state) ++
       cannons(state) ++ Render.scene(Map.fetch!(Map.fetch!(state, :match), :game), Map.fetch!(state, :layout), Map.fetch!(state, :frame))
   end
@@ -263,7 +262,12 @@ defmodule Badge.App.Goatwars.Page do
       Enum.flat_map(1..4, fn id ->
         x = 4 + (id - 1) * 43
 
-        text(x, 210, short(Map.get(Map.fetch!(Map.fetch!(state, :match), :scores), id, 0)), 0xFFFFFF) ++
+        label =
+          if :lists.any(fn effect -> Map.fetch!(effect, :id) == id end, Map.fetch!(state, :effects)),
+            do: "BAA!",
+            else: short(Map.get(Map.fetch!(Map.fetch!(state, :match), :scores), id, 0))
+
+        text(x, 210, label, 0xFFFFFF) ++
           text(x, 224, short(Map.get(Map.fetch!(state, :scores), id, 0)), 0xFFFFFF) ++
           [{:rect, x, 209, 36, 1, Render.color(id)}]
       end)

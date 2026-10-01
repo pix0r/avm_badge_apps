@@ -22,12 +22,12 @@ known unresolved hardware risk.
 
 | Gate | Result |
 | --- | --- |
-| Apps host suite | 144 tests, zero failures |
+| Apps host suite | 146 tests, zero failures |
 | Selected firmware suite | 1,408 tests, zero failures; two asset-regeneration tests excluded |
 | Native badge-v1 execution | 20 seeded matches plus countdown, pause, settings, restart and render assertions pass |
 | Exact VM compatibility | All imports and 59 instruction types in 19 game modules resolve against pinned VM sources/libraries |
 | Actual released boot library | Real app pack loads dynamically; imported library exports and page lifecycle pass on native AtomVM with released boot.avm |
-| Store packaging | About 55 KB, under the 65,536-byte limit; native pack and host pack tests pass |
+| Store packaging | About 54 KB, under the 65,536-byte limit; native pack and host pack tests pass |
 | Store authentication | Disposable-key signed pack verifies; tampering is rejected; no production key or publishing used |
 | Real firmware UI | Four integration scenarios pass, including ticker backpressure: empty NVS launch/key routing, retained installation with offline reload failure, crashed game recovery to Home |
 | Resource stress | Four presets, a dense board, 25 entries and 100 rounds pass at 4,096/8,192/16,384 words; 32 retained frames pass at 32,768 words; binary memory is checked separately |

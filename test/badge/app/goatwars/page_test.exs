@@ -2,6 +2,20 @@ defmodule Badge.App.Goatwars.PageTest do
   use ExUnit.Case, async: true
   alias Badge.App.Goatwars.{Match, Page}
 
+  test "simultaneous knockouts show brief goat calls without adding board drawing commands" do
+    state = Enum.reduce(0..30, Page.init(countdown_ms: 0), &Page.advance(&2, &1 * 100))
+    assert Enum.count(state.match.events, &match?({:crashed, _, _}, &1)) == 2
+    items = Page.render(state)
+    assert length(items) <= 25
+    assert {:text, 47, 210, :default16px, 0xFFFFFF, :transparent, "BAA!"} in items
+    assert {:text, 90, 210, :default16px, 0xFFFFFF, :transparent, "BAA!"} in items
+    assert {:text, 4, 210, :default16px, 0xFFFFFF, :transparent, "775"} in items
+    assert state.match.scores[2] == 750
+    expired = Enum.reduce(31..36, state, &Page.advance(&2, &1 * 100))
+    refute Enum.any?(Page.render(expired), &match?({:text, _, _, _, _, _, "BAA!"}, &1))
+    assert {:text, 47, 210, :default16px, 0xFFFFFF, :transparent, "750"} in Page.render(expired)
+  end
+
   test "badge opponents stay simple across rematches, settings and the B shortcut" do
     state = Page.init(countdown_ms: 0)
     assert_simple(state)
