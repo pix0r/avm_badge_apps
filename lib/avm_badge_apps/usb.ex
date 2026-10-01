@@ -140,9 +140,11 @@ defmodule AvmBadgeApps.Usb do
     <<_::binary-size(12), named::binary>> = section
     name = hd(:binary.split(named, <<0>>))
 
-    if name == "Elixir.Badge.Pages.beam",
-      do: sections(rest, acc, count + 1),
-      else: sections(rest, [section | acc], count)
+    cond do
+      name == "Elixir.Badge.Pages.beam" -> sections(rest, acc, count + 1)
+      String.starts_with?(name, "Elixir.Mix.Tasks.") -> sections(rest, acc, count)
+      true -> sections(rest, [section | acc], count)
+    end
   end
 
   defp sections(_, _, _), do: Mix.raise("invalid firmware pack sections")

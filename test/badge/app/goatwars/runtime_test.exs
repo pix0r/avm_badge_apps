@@ -9,15 +9,22 @@ defmodule Badge.App.Goatwars.RuntimeTest do
              |> MapSet.new()
 
   test "all compiled game files use supported Elixir library functions" do
-    source =
+    sources =
       @root
       |> Path.join("apps/goatwars/lib/**/*.ex")
       |> Path.wildcard()
       |> Enum.sort_by(fn path -> if Path.basename(path) == "controller.ex", do: 0, else: 1 end)
-      |> Enum.map_join("\n", &File.read!/1)
-      |> String.replace("Badge.App.Goatwars", "GoatwarsRuntimeAudit")
+      |> Enum.map(fn path ->
+        source = File.read!(path) |> String.replace("Badge.App.Goatwars", "GoatwarsRuntimeAudit")
+        ast = Code.string_to_quoted!(source, file: path)
 
-    binaries = Code.compile_string(source)
+        Macro.prewalk(ast, fn
+          {:__DIR__, _, context} when is_atom(context) -> Path.dirname(path)
+          node -> node
+        end)
+      end)
+
+    binaries = Code.compile_quoted({:__block__, [], sources})
     modules = MapSet.new(Enum.map(binaries, &elem(&1, 0)))
 
     unsupported =

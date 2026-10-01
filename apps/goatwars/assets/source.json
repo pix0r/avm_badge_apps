@@ -1,0 +1,29 @@
+{
+  "generator": "Built-in image_gen",
+  "reference": "Earlier GoatWars title/interstitial concept from this chat",
+  "dimensions": {
+    "goat": [
+      96,
+      64
+    ],
+    "logo": [
+      144,
+      40
+    ]
+  },
+  "palette": "palette.rgba: sixteen four-byte RGBA entries, index zero transparent",
+  "encoding": "High nibble first, two palette indices per byte. RLE header: high bit repeats the next byte, otherwise copies literal bytes; low seven bits are count minus one.",
+  "compiled_assets": [
+    "goat.rle",
+    "logo.rle",
+    "palette.rgba"
+  ],
+  "preview_assets": [
+    "goat.png",
+    "logo.png"
+  ],
+  "prompts": {
+    "goat": "Use case: background-extraction. Asset type: compact badge game sprite. Input image is the earlier approved GoatWars title/interstitial concept. Extract ONLY the detailed horned cream goat crouched riding the black futuristic neon cyan lightcycle, as shown in the right-hand panel. Preserve its three-quarter 3D perspective, big curved brown horns, expressive yellow eye, rider pose, dark sculpted bike body, and glowing circular wheels. The user is restoring this earlier artwork: keep its identity, proportions, pose and rich shading closely, do not redesign it as a simple side-on cartoon. Remove ALL surrounding screen elements: no title, words, mountains, grid, sun, HUD, frame, background or long light trail. Keep the entire goat and both wheels visible with tight bounds and a genuinely transparent background. Preserve crisp retro pixel-art shading that conveys volume and depth. Use a limited 16-color palette with cream/brown goat, deep purple-black bike and luminous cyan/mint highlights, designed to remain legible as a 96x64 sprite scaled 2x on a badge. No white matte, no shadow plane, no extra objects. Output the cutout alone.",
+    "logo": "Use case: background-extraction. Asset type: GoatWars title logo. Restore the EXACT distinctive angular GOATWARS logo from the LEFT panel of the reference image. Extract only the word GOATWARS, preserving its cream face, cyan left edge, pink shadow, jagged heavy-metal angular letterforms, oversized G descending tail, W spikes and final S shape. Remove ALL surrounding elements: no header, tagline, stars, goat, lightcycle, mountains, floor, sun, menu, border or background. Preserve the lettering and identity closely; do not substitute square pixel-font lettering. It must read GOATWARS exactly. Transparent background, tight bounding box. Crisp retro pixel-art edges and a very limited palette, intended for display as a 144x40-pixel sprite scaled 2x on a badge."
+  }
+}

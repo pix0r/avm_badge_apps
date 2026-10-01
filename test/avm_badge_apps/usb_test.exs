@@ -48,6 +48,29 @@ defmodule AvmBadgeApps.UsbTest do
     assert File.stat!(paths.assets).size <= 262_144
   end
 
+  test "USB omits host Mix tasks and preserves runtime sections and startup metadata", %{dir: dir} do
+    inputs = fixtures(dir)
+    [{host, beam}] = Code.compile_string("defmodule Mix.Tasks.UsbHostFixture do; def run(_), do: :host_only; end")
+    host_path = Path.join(dir, "#{host}.beam")
+    File.write!(host_path, beam)
+    with_host = Path.join(dir, "with-host.avm")
+    :ok = ExAtomVM.PackBEAM.make_avm([{inputs.firmware, :avm}, {host_path, :beam}], with_host)
+    inputs = %{inputs | firmware: with_host}
+    assert ~c"Elixir.Mix.Tasks.UsbHostFixture.beam" in packed_names(File.read!(with_host))
+
+    paths = Usb.build!(inputs, Path.join(dir, "host-filtered"))
+    names = packed_names(File.read!(paths.firmware))
+    refute Enum.any?(names, &List.starts_with?(&1, ~c"Elixir.Mix.Tasks."))
+    assert Enum.count(names, &(&1 == ~c"Elixir.Badge.Pages.beam")) == 1
+
+    for name <- ["Elixir.UsbFixtureBoot.beam", "avm_badge/priv/application.bin"] do
+      assert packed_section_for(paths.firmware, name) == packed_section_for(with_host, name)
+    end
+
+    <<_::32, flags::32, _::binary>> = packed_section_for(paths.firmware, "Elixir.UsbFixtureBoot.beam")
+    assert flags == 1
+  end
+
   test "USB splits game modules across both packs when assets have little room", %{dir: dir} do
     inputs = fixtures(dir)
     path = Path.join(dir, "assets/priv/padding.bin")
@@ -114,6 +137,20 @@ defmodule AvmBadgeApps.UsbTest do
     assert_raise Mix.Error, ~r/assets.*partition/, fn -> Usb.build!(inputs, output) end
     refute File.exists?(Path.join(output, "firmware.avm"))
     refute File.exists?(Path.join(output, "assets.avm"))
+  end
+
+  defp packed_section_for(path, name) do
+    <<_::binary-size(24), sections::binary>> = File.read!(path)
+    find_section(sections, name)
+  end
+
+  defp find_section(<<0::32, 0::32, 0::32, "end", 0>>, name), do: flunk("missing section #{name}")
+
+  defp find_section(<<size::32, _::binary>> = bytes, name) do
+    <<section::binary-size(size), rest::binary>> = bytes
+    <<_::binary-size(12), named::binary>> = section
+    [actual | _] = :binary.split(named, <<0>>)
+    if actual == name, do: section, else: find_section(rest, name)
   end
 
   defp packed_names(<<_::binary-size(24), sections::binary>>), do: section_names(sections)

@@ -32,27 +32,27 @@ defmodule Badge.App.Goatwars.ArtTest do
     assert Art.decode_rle(<<>>, palette) == <<>>
   end
 
-  test "compression preserves the themed artwork pixels exactly" do
+  test "compression preserves the detailed goat and angular logo pixels exactly" do
     art = Art.load()
     {:rgba8888, 96, 64, goat} = Map.fetch!(art, :goat)
-    {:rgba8888, 144, 32, logo} = Map.fetch!(art, :logo)
+    {:rgba8888, 144, 40, logo} = Map.fetch!(art, :logo)
 
     assert Base.encode16(:crypto.hash(:sha256, goat)) ==
-             "30DC209599A93DE36F2B80F408FAECFC2DDF89BE3A2124BD0A694CF9DACCDF2D"
+             "513F8C6166E50E2E18F4BB54C88628B62AE1D5D3D2F2F557898C34864A64AAE9"
 
     assert Base.encode16(:crypto.hash(:sha256, logo)) ==
-             "365F4480A63DA379D72BFC4887605B6B3416192E1918ADFF0FD422731357543C"
+             "F18B4D03C5C5A22A173BAF38416FE2673549C97A13265783E7105C001763EE5C"
   end
 
   test "loads complete RGBA textures at badge artwork dimensions" do
     art = Art.load()
     assert {:rgba8888, 96, 64, goat} = Map.fetch!(art, :goat)
-    assert {:rgba8888, 144, 32, logo} = Map.fetch!(art, :logo)
+    assert {:rgba8888, 144, 40, logo} = Map.fetch!(art, :logo)
     assert byte_size(goat) == 24_576
-    assert byte_size(logo) == 18_432
+    assert byte_size(logo) == 23_040
   end
 
-  test "art keeps transparency, cream, mint and coral colour pixels" do
+  test "art keeps transparency, cream, cyan and coral colour pixels" do
     art = Art.load()
 
     for key <- [:goat, :logo] do
@@ -60,7 +60,7 @@ defmodule Badge.App.Goatwars.ArtTest do
       colors = for <<r, g, b, a <- pixels>>, into: MapSet.new(), do: {r, g, b, a}
       assert MapSet.member?(colors, {0, 0, 0, 0})
       assert MapSet.member?(colors, {255, 244, 204, 255})
-      assert MapSet.member?(colors, {93, 226, 180, 255})
+      assert MapSet.member?(colors, {0, 229, 255, 255})
       assert MapSet.member?(colors, {255, 122, 144, 255})
       assert Enum.all?(colors, fn {_, _, _, a} -> a in [0, 255] end)
     end
@@ -68,6 +68,6 @@ defmodule Badge.App.Goatwars.ArtTest do
 
   test "stored palette and packed artwork fit the asset budget" do
     assert Art.stored_bytes() > 0
-    assert Art.stored_bytes() <= 2_600
+    assert Art.stored_bytes() <= 3_800
   end
 end

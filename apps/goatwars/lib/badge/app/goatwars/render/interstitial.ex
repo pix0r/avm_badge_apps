@@ -30,10 +30,11 @@ defmodule Badge.App.Goatwars.Render.Interstitial do
 
   def title(%{goat: goat, logo: logo}) do
     [
-      image(16, 32, logo),
-      text(88, 98, "DON'T LET IT CRASH", @mint),
-      text(208, 158, "Enter: play", @cream),
-      text(208, 182, "S: settings", @mint),
+      image(16, 28, logo),
+      text(208, 120, "DON'T LET", @mint),
+      text(208, 138, "IT CRASH", @mint),
+      text(208, 174, "Enter: play", @cream),
+      text(208, 198, "S: settings", @mint),
       image(8, 110, goat)
       | @scenery ++ [{:rect, 0, 24, 320, 216, @bg}]
     ]

@@ -76,6 +76,7 @@ defmodule Badge.App.Goatwars.TitleTest do
   test "purple scenery and dark player labels keep the theme readable" do
     title = Page.init()
     assert {:rect, 0, 24, 320, 216, 0x241332} in Page.render(title)
+    assert Enum.any?(Page.render(title), &match?({:scaled_cropped_image, 16, 28, 288, 80, _, _, _, _, _, _, {:rgba8888, 144, 40, _}}, &1))
     {:ok, settings} = Page.handle_key({:char, ?s}, title)
     assert {:text, 8, 53, :default16px, 0x241332, :transparent, ">P1"} in Page.render(settings)
   end
