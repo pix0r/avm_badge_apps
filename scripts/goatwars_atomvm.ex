@@ -4,6 +4,11 @@ defmodule GoatwarsReadiness do
   def start do
     rounds(1)
     state = Page.init()
+    :loading = Map.fetch!(state, :screen)
+    state = Page.advance(state, 0)
+    :loading = Map.fetch!(state, :screen)
+    true = length(Page.render(state)) > 0
+    state = Page.advance(state, 100)
     :title = Map.fetch!(state, :screen)
     ^state = Page.advance(state, -100_000)
     true = length(Page.render(state)) > 0

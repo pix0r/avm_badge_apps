@@ -8,6 +8,51 @@ scaled board image. The board background is solid; the former grid lines are omi
 Headless matches still use maps. The firmware ticker waits for a completed UI
 callback before requesting another frame, preventing a backlog ahead of keys.
 
+## Startup feedback and artwork decoding
+
+Opening GoatWars previously ran match setup and all artwork decoding inside
+`Page.init/0`, before the UI could submit a new frame. The reported physical
+symptom was about five seconds with the previous page still visible. Native
+profiling identified artwork expansion as the dominant initialization work;
+these host timings do not establish how much of the physical delay it explains.
+
+The default initializer now returns a small loading state without artwork or
+match data. The first tick leaves that state cheap to render, showing
+“Loading GoatWars...” and “Warming up the herd”. The next tick prepares the
+existing title. This ordering matters because the firmware ticks a page before
+rendering it. Home navigation cancels during the loading frame. Preparation
+still runs synchronously, so the message stays still while it completes.
+Enter on the title still starts the independent three-second launch countdown.
+
+The RLE decoder copies repeated RGBA pixel pairs with `binary:copy/2` instead
+of expanding every repeated pixel in Elixir. Literal packets remain bounded
+at 128 packed bytes; the output accumulator flushes after reaching 512 bytes
+and cannot exceed 1,528 bytes. Pixel hashes, dimensions, alpha and the 3,748-byte
+compressed asset budget are unchanged.
+
+Twenty-one samples per version on the pinned native AtomVM and released boot
+pack compare `fb8d65c` with this fix. First-frame time includes initialization,
+the first tick and render-list creation; title-ready time adds the preparation
+tick and title render. It excludes ticker sleep, AtomGL raster and panel transfer.
+
+| Work | `fb8d65c` median | Fix median |
+| --- | ---: | ---: |
+| Isolated artwork load | 6,660 µs | 2,227 µs |
+| First render list | 11,591 µs | 7 µs |
+| Ready title render list | 11,616 µs | 5,033 µs |
+
+Evidence and the timing harness are under `/private/tmp/goatwars-startup/timing`.
+The host regression test rejects the former roughly 25,000-reduction decoder
+with a 16,000-reduction work budget. Loading tests reject eager preparation,
+verify a loading render before preparation, and preserve custom initialization
+options. Six real firmware UI scenarios include loading-frame submission,
+Home cancellation and reentry. Native Store loading and capped resource fixtures
+exercise the same loading sequence. Physical visibility and timing still need
+confirmation on an ESP32-S3; no board was connected for this change.
+
+The Store pack is 64,900 / 65,536 bytes. The offline USB firmware is
+667,256 / 671,744 bytes and assets remain 262,144 / 262,144 bytes.
+
 ## Middle board and configurable pace
 
 Version 0.1.3 uses 10 ms adjustments, F slower and V faster, bounded at 50–400 ms.

@@ -160,6 +160,11 @@ defmodule GoatwarsResources do
 
   defp lifecycle(n) do
     state = Page.init()
+    :loading = Map.fetch!(state, :screen)
+    state = Page.advance(state, 0)
+    :loading = Map.fetch!(state, :screen)
+    true = length(Page.render(state)) > 0
+    state = Page.advance(state, 100)
     :title = Map.fetch!(state, :screen)
     true = length(Page.render(state)) > 0
     {:ok, state} = Page.handle_key(:enter, state)

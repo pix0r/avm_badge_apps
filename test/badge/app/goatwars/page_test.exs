@@ -74,7 +74,7 @@ defmodule Badge.App.Goatwars.PageTest do
   end
 
   test "speed adjusts in ten-millisecond steps with safe upper and lower bounds" do
-    {:ok, settings} = Page.handle_key({:char, ?s}, Page.init())
+    {:ok, settings} = Page.handle_key({:char, ?s}, Page.init(loading: false))
 
     settings =
       Enum.reduce([110, 120, 130], settings, fn expected, settings ->
@@ -110,7 +110,7 @@ defmodule Badge.App.Goatwars.PageTest do
     {:ok, paused} = Page.handle_key({:char, 32}, state)
     {:ok, settings} = Page.handle_key({:char, ?s}, state)
 
-    for page <- [paused, settings, Page.init()] do
+    for page <- [paused, settings, Page.init(loading: false)] do
       assert Page.tick_interval(page) == 100
       assert Page.refresh(page) == 100
     end
@@ -129,7 +129,7 @@ defmodule Badge.App.Goatwars.PageTest do
   end
 
   test "canceling a speed change retains a custom pace" do
-    state = Page.init(rules: %{width: 40, height: 30, step_ms: 250})
+    state = Page.init(loading: false, rules: %{width: 40, height: 30, step_ms: 250})
     {:ok, state} = Page.handle_key(:enter, state)
     {:ok, settings} = Page.handle_key({:char, ?s}, state)
     {:ok, settings} = Page.handle_key({:char, ?f}, settings)
@@ -139,7 +139,7 @@ defmodule Badge.App.Goatwars.PageTest do
   end
 
   test "canceling a board-size change preserves custom rules" do
-    state = Page.init(rules: %{width: 40, height: 30, shrink_after: 99, step_ms: 200})
+    state = Page.init(loading: false, rules: %{width: 40, height: 30, shrink_after: 99, step_ms: 200})
     {:ok, state} = Page.handle_key(:enter, state)
     {:ok, settings} = Page.handle_key({:char, ?s}, state)
     {:ok, settings} = Page.handle_key({:char, ?g}, settings)
@@ -266,7 +266,7 @@ defmodule Badge.App.Goatwars.PageTest do
   end
 
   test "launch counts down without movement or scoring, then starts" do
-    state = Page.init()
+    state = Page.init(loading: false)
     {:ok, state} = Page.handle_key(:enter, state)
     state = Page.advance(state, 1000)
     assert state.match.game.tick == 0

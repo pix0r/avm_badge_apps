@@ -66,6 +66,17 @@ defmodule Badge.App.Goatwars.ArtTest do
     end
   end
 
+  test "loading title artwork stays within the startup work budget" do
+    Art.load()
+    {:reductions, before} = :erlang.process_info(self(), :reductions)
+    art = Art.load()
+    {:reductions, after_load} = :erlang.process_info(self(), :reductions)
+
+    assert {:rgba8888, 96, 64, goat} = Map.fetch!(art, :goat)
+    assert byte_size(goat) == 24_576
+    assert after_load - before < 16_000
+  end
+
   test "stored palette and packed artwork fit the asset budget" do
     assert Art.stored_bytes() > 0
     assert Art.stored_bytes() <= 3_800
