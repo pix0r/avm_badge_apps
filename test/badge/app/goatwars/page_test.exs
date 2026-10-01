@@ -8,8 +8,8 @@ defmodule Badge.App.Goatwars.PageTest do
     result = %{state | match: %{state.match | game: %{state.match.game | status: {:winner, 4}}, awarded_bonus: {4, 3000}}}
 
     for page <- [paused, result] do
-      captions = for {:text, _, y, _, _, background, _} <- Page.render(page), y == 100 or y == 121, do: background
-      assert captions == [0x000020, 0x000020]
+      captions = for {:text, _, y, _, _, background, _} <- Page.render(page), y == 34 or y == 54, do: background
+      assert captions == [0x241332, 0x241332]
     end
   end
 
@@ -130,6 +130,7 @@ defmodule Badge.App.Goatwars.PageTest do
 
   test "canceling a speed change retains a custom pace" do
     state = Page.init(rules: %{width: 40, height: 30, step_ms: 250})
+    {:ok, state} = Page.handle_key(:enter, state)
     {:ok, settings} = Page.handle_key({:char, ?s}, state)
     {:ok, settings} = Page.handle_key({:char, ?f}, settings)
     {:ok, canceled} = Page.handle_key({:char, ?s}, settings)
@@ -139,6 +140,7 @@ defmodule Badge.App.Goatwars.PageTest do
 
   test "canceling a board-size change preserves custom rules" do
     state = Page.init(rules: %{width: 40, height: 30, shrink_after: 99, step_ms: 200})
+    {:ok, state} = Page.handle_key(:enter, state)
     {:ok, settings} = Page.handle_key({:char, ?s}, state)
     {:ok, settings} = Page.handle_key({:char, ?g}, settings)
     {:ok, canceled} = Page.handle_key({:char, ?s}, settings)
@@ -153,8 +155,8 @@ defmodule Badge.App.Goatwars.PageTest do
     items = Page.render(Page.init(countdown_ms: 0))
     footer = for {:text, _, y, _, _, background, _} <- items, y >= 210, do: background
     assert length(footer) == 12
-    assert Enum.all?(footer, &(&1 == 0x000020))
-    assert {:rect, 0, 209, 320, 31, 0x000020} in items
+    assert Enum.all?(footer, &(&1 == 0x241332))
+    assert {:rect, 0, 209, 320, 31, 0x241332} in items
   end
 
   test "simultaneous knockouts show brief goat calls without adding board drawing commands" do
@@ -168,13 +170,13 @@ defmodule Badge.App.Goatwars.PageTest do
     assert Enum.count(state.match.events, &match?({:crashed, _, _}, &1)) == 2
     items = Page.render(state)
     assert length(items) <= 26
-    assert {:text, 47, 210, :default16px, 0xFFFFFF, 0x000020, "BAA!"} in items
-    assert {:text, 90, 210, :default16px, 0xFFFFFF, 0x000020, "BAA!"} in items
-    assert {:text, 4, 210, :default16px, 0xFFFFFF, 0x000020, "775"} in items
+    assert {:text, 47, 210, :default16px, 0xFFFFFF, 0x241332, "BAA!"} in items
+    assert {:text, 90, 210, :default16px, 0xFFFFFF, 0x241332, "BAA!"} in items
+    assert {:text, 4, 210, :default16px, 0xFFFFFF, 0x241332, "775"} in items
     assert state.match.scores[2] == 750
     expired = Enum.reduce(31..36, state, &Page.advance(&2, &1 * 100))
     refute Enum.any?(Page.render(expired), &match?({:text, _, _, _, _, _, "BAA!"}, &1))
-    assert {:text, 47, 210, :default16px, 0xFFFFFF, 0x000020, "750"} in Page.render(expired)
+    assert {:text, 47, 210, :default16px, 0xFFFFFF, 0x241332, "750"} in Page.render(expired)
   end
 
   test "badge opponents stay simple across rematches, settings and the B shortcut" do
@@ -256,6 +258,7 @@ defmodule Badge.App.Goatwars.PageTest do
 
   test "launch counts down without movement or scoring, then starts" do
     state = Page.init()
+    {:ok, state} = Page.handle_key(:enter, state)
     state = Page.advance(state, 1000)
     assert state.match.game.tick == 0
     assert state.scores == %{}
@@ -363,10 +366,10 @@ defmodule Badge.App.Goatwars.PageTest do
   end
 
   test "footer text and player stripes clear the bottom arena wall" do
-    state = Page.init()
+    state = Page.init(countdown_ms: 0)
     wall_y = state.layout.y + state.match.game.config.height * state.layout.cell
     items = Page.render(state)
-    assert {:text, 180, 210, :default16px, 0xFFFFFF, 0x000020, "Energy"} in items
+    assert {:text, 180, 210, :default16px, 0xFFFFFF, 0x241332, "Energy"} in items
 
     for {:rect, x, y, 36, _height, _color} <- items, x in [4, 47, 90, 133] do
       assert y > wall_y

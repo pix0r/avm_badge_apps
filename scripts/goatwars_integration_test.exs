@@ -1,7 +1,7 @@
 root = Path.expand("..", __DIR__)
 Code.require_file("goatwars_core.exs", __DIR__)
 
-for file <- ~w(render/layout render/explosion render page/state page),
+for file <- ~w(art render/interstitial render/layout render/explosion render page/state page),
     do: Code.require_file(Path.join(root, "apps/goatwars/lib/badge/app/goatwars/" <> file <> ".ex"))
 
 ExUnit.start()
@@ -45,8 +45,11 @@ defmodule GoatwarsIntegrationTest do
     assert :sys.get_state(Badge.UI).page == Page
     tick()
     snapshot = Display.snapshot()
-    assert Enum.any?(snapshot.items, &match?({:text, _, _, _, _, _, "READY"}, &1))
+    assert Enum.any?(snapshot.items, &match?({:text, _, _, _, _, _, "Enter: play"}, &1))
     assert length(snapshot.items) == length(snapshot.frame)
+    Badge.UI.key_event(Badge.Keymap.decode(~c"Enter", false))
+    tick()
+    assert Enum.any?(Display.snapshot().items, &match?({:text, _, _, _, _, _, "READY, SET, GOAT!"}, &1))
     Badge.UI.key_event(Badge.Keymap.decode(~c"Left", false))
     assert :sys.get_state(Badge.UI).page_state.match.controllers[1] == :human
     Badge.UI.key_event(Badge.Keymap.decode(~c"S", false))

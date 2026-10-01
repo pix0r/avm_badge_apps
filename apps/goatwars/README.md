@@ -19,16 +19,18 @@ mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- elixir scripts/goatwars_headless
 
 On first setup, run `MIX_TARGET=host mix deps.get` in `../avm_badge` with the same
 mise toolchain. The script accepts `AVM_BADGE_PATH` for a different firmware path.
-Visit http://localhost:3240. Four AI riders launch after a three-second countdown, scores accumulate,
+Visit http://localhost:3240. The title waits for Enter; four AI riders then launch
+after a three-second countdown, scores accumulate,
 and completed rounds restart after two seconds. Two browser tabs share one board.
 Exit the simulator's IEx with Ctrl-C, then `a`.
 
 | Keys | Action |
 | --- | --- |
-| Left / Right | Take over blue (player 1), turn left / right |
-| Z / X | Take over red (player 2), turn left / right |
-| 1 / 2 | Take over green (player 3), turn left / right |
-| 9 / 0 | Take over yellow (player 4), turn left / right |
+| Enter, on the title | Start the countdown |
+| Left / Right | Take over gold (player 1), turn left / right |
+| Z / X | Take over mint (player 2), turn left / right |
+| 1 / 2 | Take over coral (player 3), turn left / right |
+| 9 / 0 | Take over lavender (player 4), turn left / right |
 | Space | Pause / resume |
 | R | New round, preserve total scores |
 | S | Open / cancel player settings |
@@ -43,8 +45,18 @@ duration; V subtracts 10 ms. The range is 50–400 ms; larger durations slow the
 game. C cycles left/right key presets; choosing
 an occupied preset swaps assignments. R toggles beam retraction. Enter applies
 settings and starts a new countdown. At least two slots must be active. Settings
-suspend the match; S cancels without applying changes. Board size and speed are
+suspend the match; S cancels without applying changes and returns to the screen that opened them. Board size and speed are
 independent; rematches preserve both. Leaving and reopening restores defaults.
+
+The title, countdown, pause, win and draw screens share placeholder goat/lightcycle
+art. Artwork is embedded as RLE-compressed sixteen-colour pixel indices (2,532
+bytes), decoded once when the page opens, and reused as RGBA binaries (42 KiB).
+Stars and neon scenery are display primitives. The Elixir/Goatmire palette uses a
+purple board with gold, mint, coral and lavender trails. The app pack is 61,716
+bytes, 7,212 bytes above the `e08cff2` baseline and below the 65,536-byte Store
+limit. The matching offline USB build fits with 64 bytes free in the firmware
+partition and no free space in assets; rebuild and check both sizes after changes.
+`Page.init(countdown_ms: 0)` skips the title and countdown for tests and benchmarks.
 
 A keypress supplies one turn on the next tick; absent input maintains direction.
 The last press before a tick wins. Held-key integration remains deferred.
@@ -61,8 +73,8 @@ than the requested rate if gameplay or display work takes longer.
 [Performance verification](../../docs/goatwars-performance.md)
 contains benchmarks and device timing instructions.
 
- Blue starts at the bottom,
-red at the top, green at the left and yellow at the right, facing inward.
+Gold starts at the bottom, mint at the top, coral at the left and lavender at the
+right, facing inward.
 The core accepts arbitrary rosters of two or more players through `Game.new/2`;
 `Match.demo/3` supplies four edge spawns and requires dimensions at least 2×2.
 

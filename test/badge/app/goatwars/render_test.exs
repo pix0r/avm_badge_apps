@@ -1,6 +1,6 @@
 defmodule Badge.App.Goatwars.RenderTest do
   use ExUnit.Case, async: true
-  alias Badge.App.Goatwars.{Game, Match, Render}
+  alias Badge.App.Goatwars.{Board, Game, Match, Render}
 
   test "contraction warning has a bounded drawing budget on a full size board" do
     game = Game.compact(Match.demo(%{width: 78, height: 46, shrink_after: 12, warning_ticks: 4}).game)
@@ -24,12 +24,37 @@ defmodule Badge.App.Goatwars.RenderTest do
     assert Enum.all?(Render.scene(match.game, layout), &is_tuple/1)
   end
 
-  test "classic beam colors and a board that uses the available badge area" do
-    assert Enum.map(1..4, &Render.color/1) == [0x0000FF, 0xFF0000, 0x00FF00, 0xFFFF00]
+  test "complementary trail colors and a board that uses the available badge area" do
+    assert Enum.map(1..4, &Render.color/1) == [0xFFD166, 0x5DE2B4, 0xFF7A90, 0xBDA7FF]
     layout = Render.layout(Match.demo(%{width: 78, height: 46}).game.config)
     assert layout.cell == 4
     assert layout.x == 4
     assert layout.y == 24
+  end
+
+  test "map and bitmap rendering use the same trail colors and purple board" do
+    occupied = %{{1, 1} => 1, {2, 1} => 2, {3, 1} => 3, {4, 1} => 4}
+    game = %{Match.demo(%{width: 16, height: 12}).game | players: %{}, occupied: occupied}
+    layout = Render.layout(game.config)
+    items = Render.scene(game, layout)
+
+    assert List.last(items) == {:rect, layout.x, layout.y, 16 * layout.cell, 12 * layout.cell, 0x241332}
+    assert Enum.any?(items, &match?({:rect, _, _, _, _, 0x4D2B63}, &1))
+    assert Render.warning_color(game, 0) == 0x9B85AD
+
+    bitmap = Board.new(game.config, occupied)
+    bitmap_items = Render.scene(%{game | occupied: bitmap}, layout)
+    assert {:scaled_cropped_image, layout.x, layout.y, 16 * layout.cell, 12 * layout.cell, :transparent, 0, 0,
+            layout.cell, layout.cell, [], {:rgba8888, 16, 12, elem(bitmap, 2)}} in bitmap_items
+
+    for {position = {column, row}, id} <- occupied do
+      color = Render.color(id)
+      assert {:rect, layout.x + column * layout.cell, layout.y + row * layout.cell, layout.cell, layout.cell, color} in items
+      assert :binary.part(elem(bitmap, 2), (row * 16 + column) * 4, 4) == <<color::24, 255>>
+      assert Board.get(bitmap, position) == id
+    end
+
+    assert :binary.part(elem(bitmap, 2), 0, 4) == <<36, 19, 50, 255>>
   end
 
   test "the warning ring visibly flashes before contraction" do

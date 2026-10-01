@@ -72,25 +72,57 @@ defmodule AvmBadgeApps.Usb do
       {nil, game}
     else
       <<header::binary-size(24), bytes::binary>> = File.read!(game)
-      {extra, remaining} = split_sections(bytes, needed, [])
+      {extra, remaining} = split_sections(bytes, needed)
       extra_path = Path.join(stage, "game-main.avm")
       remaining_path = Path.join(stage, "game-assets.avm")
       ending = <<0::32, 0::32, 0::32, "end", 0>>
-      File.write!(extra_path, [header, :lists.reverse(extra), ending])
+      File.write!(extra_path, [header, extra, ending])
       File.write!(remaining_path, [header, remaining])
       {extra_path, remaining_path}
     end
   end
 
-  defp split_sections(bytes, needed, extra) when needed <= 0, do: {extra, bytes}
+  defp split_sections(bytes, needed) do
+    {sections, ending} = game_sections(bytes, [])
+    largest = Enum.reduce(sections, 0, fn section, largest -> max(byte_size(section), largest) end)
+    limit = needed + largest - 1
 
-  defp split_sections(<<size::32, _::binary>> = bytes, needed, extra)
-       when size >= 16 and byte_size(bytes) >= size do
-    <<section::binary-size(size), rest::binary>> = bytes
-    split_sections(rest, needed - size, [section | extra])
+    reachable =
+      sections
+      |> Enum.with_index()
+      |> Enum.reduce(%{0 => 0}, fn {section, index}, reachable ->
+        size = byte_size(section)
+        bit = :erlang.bsl(1, index)
+
+        Enum.reduce(reachable, reachable, fn {total, chosen}, sums ->
+          if total + size <= limit,
+            do: Map.put_new(sums, total + size, :erlang.bor(chosen, bit)),
+            else: sums
+        end)
+      end)
+
+    candidates = Enum.filter(reachable, fn {total, _} -> total >= needed end)
+    if candidates == [], do: Mix.raise("assets and game exceed partition capacity")
+    {_, chosen} = Enum.min_by(candidates, fn {total, _} -> total end)
+
+    {extra, remaining} =
+      sections
+      |> Enum.with_index()
+      |> Enum.split_with(fn {_, index} -> :erlang.band(chosen, :erlang.bsl(1, index)) != 0 end)
+
+    {Enum.map(extra, &elem(&1, 0)), [Enum.map(remaining, &elem(&1, 0)), ending]}
   end
 
-  defp split_sections(_, _, _), do: Mix.raise("assets and game exceed partition capacity")
+  defp game_sections(<<0::32, 0::32, 0::32, "end", 0>> = ending, acc),
+    do: {Enum.reverse(acc), ending}
+
+  defp game_sections(<<size::32, _::binary>> = bytes, acc)
+       when size >= 16 and byte_size(bytes) >= size do
+    <<section::binary-size(size), rest::binary>> = bytes
+    game_sections(rest, [section | acc])
+  end
+
+  defp game_sections(_, _), do: Mix.raise("assets and game exceed partition capacity")
 
   defp strip_pages!(input, output) do
     <<header::binary-size(24), sections::binary>> = File.read!(input)

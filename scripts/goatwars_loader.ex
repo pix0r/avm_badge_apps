@@ -15,6 +15,9 @@ defmodule GoatwarsLoader do
     end
 
     state = Badge.App.Goatwars.Page.init()
+    :title = Map.fetch!(state, :screen)
+    true = length(Badge.App.Goatwars.Page.render(state)) > 0
+    {:ok, state} = Badge.App.Goatwars.Page.handle_key(:enter, state)
     state = state |> Badge.App.Goatwars.Page.advance(0) |> Badge.App.Goatwars.Page.advance(3000)
     true = state.started
     true = length(Badge.App.Goatwars.Page.render(state)) > 0

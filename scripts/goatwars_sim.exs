@@ -1,6 +1,6 @@
 Code.require_file("goatwars_core.exs", __DIR__)
 
-Enum.each(~w(render/explosion render/layout render page/state page), fn file ->
+Enum.each(~w(art render/interstitial render/explosion render/layout render page/state page), fn file ->
   Code.require_file(Path.expand("../apps/goatwars/lib/badge/app/goatwars/" <> file <> ".ex", __DIR__))
 end)
 

@@ -2,6 +2,41 @@ defmodule Badge.App.Goatwars.BoardTest do
   use ExUnit.Case, async: true
   alias Badge.App.Goatwars.Board
 
+  test "empty bitmap cells use the opaque Elixir purple background" do
+    board = Board.new(%{width: 3, height: 2}, %{})
+    assert board == {3, 2, :binary.copy(<<36, 19, 50, 255>>, 6)}
+    refute Board.has?(board, {1, 1})
+  end
+
+  test "all four complementary trail colors encode and decode their player IDs" do
+    pixels = [<<255, 209, 102, 255>>, <<93, 226, 180, 255>>, <<255, 122, 144, 255>>, <<189, 167, 255, 255>>]
+    bytes = IO.iodata_to_binary(pixels)
+    board = Board.new(%{width: 4, height: 1}, %{})
+
+    encoded = Enum.reduce(1..4, board, fn id, board -> Board.put(board, {id - 1, 0}, id) end)
+    assert encoded == {4, 1, bytes}
+    assert Board.new(%{width: 4, height: 1}, %{{0, 0} => 1, {1, 0} => 2, {2, 0} => 3, {3, 0} => 4}) == encoded
+
+    for id <- 1..4 do
+      assert Board.get({4, 1, bytes}, {id - 1, 0}) == id
+      assert Board.has?(encoded, {id - 1, 0})
+      assert Board.put(encoded, {id - 1, 0}, id) === encoded
+    end
+  end
+
+  test "single and batch deletion restore purple while keeping neighboring player IDs" do
+    board = Board.new(%{width: 4, height: 1}, %{{0, 0} => 1, {1, 0} => 2, {2, 0} => 3, {3, 0} => 4})
+    single = Board.delete(board, {1, 0})
+    assert single == {4, 1, <<255, 209, 102, 255, 36, 19, 50, 255, 255, 122, 144, 255, 189, 167, 255, 255>>}
+    assert Board.get(single, {1, 0}) == nil
+    assert Board.get(single, {2, 0}) == 3
+
+    cleared = Board.delete_many(single, [{3, 0}, {0, 0}, {3, 0}])
+    assert cleared == {4, 1, <<36, 19, 50, 255, 36, 19, 50, 255, 255, 122, 144, 255, 36, 19, 50, 255>>}
+    assert Board.get(cleared, {2, 0}) == 3
+    for cell <- [{0, 0}, {1, 0}, {3, 0}], do: assert(Board.get(cleared, cell) == nil)
+  end
+
   test "batch clearing handles unordered duplicates and edges without erasing neighbors" do
     occupied = %{{0, 0} => 1, {3, 0} => 2, {0, 1} => 3, {3, 2} => 4, {2, 2} => 2}
     board = Board.new(%{width: 4, height: 3}, occupied)

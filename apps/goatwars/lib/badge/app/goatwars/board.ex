@@ -2,7 +2,7 @@ defmodule Badge.App.Goatwars.Board do
   @moduledoc "Fixed-size opaque RGBA board; map storage remains available for headless play."
 
   def new(%{width: width, height: height}, occupied) do
-    board = {width, height, :binary.copy(<<0, 0, 32, 255>>, width * height)}
+    board = {width, height, :binary.copy(pixel(nil), width * height)}
     Enum.reduce(occupied, board, fn {position, id}, board -> put(board, position, id) end)
   end
 
@@ -12,10 +12,10 @@ defmodule Badge.App.Goatwars.Board do
     offset = (y * width + x) * 4
 
     case bytes do
-      <<_::binary-size(offset), 0, 0, 255, 255, _::binary>> -> 1
-      <<_::binary-size(offset), 255, 0, 0, 255, _::binary>> -> 2
-      <<_::binary-size(offset), 0, 255, 0, 255, _::binary>> -> 3
-      <<_::binary-size(offset), 255, 255, 0, 255, _::binary>> -> 4
+      <<_::binary-size(offset), 255, 209, 102, 255, _::binary>> -> 1
+      <<_::binary-size(offset), 93, 226, 180, 255, _::binary>> -> 2
+      <<_::binary-size(offset), 255, 122, 144, 255, _::binary>> -> 3
+      <<_::binary-size(offset), 189, 167, 255, 255, _::binary>> -> 4
       _ -> nil
     end
   end
@@ -64,9 +64,9 @@ defmodule Badge.App.Goatwars.Board do
     clear_chunks(bytes, rest, offset + 4, [pixel(nil), prefix | chunks])
   end
 
-  defp pixel(1), do: <<0, 0, 255, 255>>
-  defp pixel(2), do: <<255, 0, 0, 255>>
-  defp pixel(3), do: <<0, 255, 0, 255>>
-  defp pixel(4), do: <<255, 255, 0, 255>>
-  defp pixel(nil), do: <<0, 0, 32, 255>>
+  defp pixel(1), do: <<255, 209, 102, 255>>
+  defp pixel(2), do: <<93, 226, 180, 255>>
+  defp pixel(3), do: <<255, 122, 144, 255>>
+  defp pixel(4), do: <<189, 167, 255, 255>>
+  defp pixel(nil), do: <<36, 19, 50, 255>>
 end

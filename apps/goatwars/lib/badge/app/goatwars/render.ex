@@ -3,15 +3,15 @@ defmodule Badge.App.Goatwars.Render do
   alias Badge.App.Goatwars.{Arena, Game}
   alias __MODULE__.Layout
 
-  @board 0x000020
-  @grid 0x000060
-  @wall 0x777777
+  @board 0x241332
+  @grid 0x4D2B63
+  @wall 0x9B85AD
   @danger 0xFF694D
 
-  def color(1), do: 0x0000FF
-  def color(2), do: 0xFF0000
-  def color(3), do: 0x00FF00
-  def color(4), do: 0xFFFF00
+  def color(1), do: 0xFFD166
+  def color(2), do: 0x5DE2B4
+  def color(3), do: 0xFF7A90
+  def color(4), do: 0xBDA7FF
   def color(_), do: 0xA4B4FF
 
   def layout(%{width: width, height: height}) do
@@ -46,7 +46,7 @@ defmodule Badge.App.Goatwars.Render do
       [
         {:rect, x, y, c, c, color(Map.fetch!(player, :id))},
         {:rect, left + c, top + c, c, c, color(Map.fetch!(player, :id))},
-        {:rect, left + 1, top + 1, max(c * 3 - 2, 1), max(c * 3 - 2, 1), 0x777777}
+        {:rect, left + 1, top + 1, max(c * 3 - 2, 1), max(c * 3 - 2, 1), @wall}
       ]
     end)
   end

@@ -1,7 +1,7 @@
 defmodule Badge.App.Goatwars.Page do
   @moduledoc "GoatWars badge adapter. S opens player settings; Space pauses; R rematches."
   use Badge.Page
-  alias Badge.App.Goatwars.{Game, Match, Render, Setup, SimpleBot}
+  alias Badge.App.Goatwars.{Art, Game, Match, Render, Setup, SimpleBot}
   alias __MODULE__.State
 
   @impl true
@@ -33,6 +33,8 @@ defmodule Badge.App.Goatwars.Page do
       compact: Keyword.get(options, :compact, true),
       layout: Render.layout(Map.fetch!(Map.fetch!(match, :game), :config)),
       setup: setup,
+      art: Art.load(),
+      screen: if(countdown == 0, do: :game, else: :title),
       started: countdown == 0,
       launch_remaining: countdown
     })
@@ -40,6 +42,7 @@ defmodule Badge.App.Goatwars.Page do
 
   @impl true
   def handle_key(event, %{screen: :settings} = state), do: settings_key(event, state)
+  def handle_key(event, %{screen: :title} = state), do: title_key(event, state)
 
   def handle_key({:char, ?t}, state),
     do: {:ok, %{state | benchmark: not Map.fetch!(state, :benchmark), bench_previous: nil}}
@@ -47,7 +50,7 @@ defmodule Badge.App.Goatwars.Page do
   def handle_key({:char, ?m}, %{benchmark: true} = state),
     do: {:ok, restart(%{state | compact: not Map.fetch!(state, :compact), bench_previous: nil, scores: %{}, round: 0})}
 
-  def handle_key({:char, ?s}, state), do: {:ok, %{state | screen: :settings, draft: Map.fetch!(state, :setup)}}
+  def handle_key({:char, ?s}, state), do: open_settings(state)
 
   def handle_key({:char, 32}, state),
     do: {:ok, %{state | paused: not Map.fetch!(state, :paused), due_at: nil, launch_at: nil}}
@@ -76,6 +79,15 @@ defmodule Badge.App.Goatwars.Page do
         :ignore
     end
   end
+
+  defp title_key(:enter, state), do: {:ok, %{state | screen: :game}}
+  defp title_key({:edit, :newline}, state), do: title_key(:enter, state)
+  defp title_key({:char, 13}, state), do: title_key(:enter, state)
+  defp title_key({:char, ?s}, state), do: open_settings(state)
+  defp title_key(_, _), do: :ignore
+
+  defp open_settings(state),
+    do: {:ok, %{state | screen: :settings, settings_from: Map.fetch!(state, :screen), draft: Map.fetch!(state, :setup)}}
 
   defp settings_key({:move, :up}, state),
     do: {:ok, %{state | selected: max(Map.fetch!(state, :selected) - 1, 1)}}
@@ -106,7 +118,7 @@ defmodule Badge.App.Goatwars.Page do
     do: {:ok, %{state | draft: Setup.adjust_speed(Map.fetch!(state, :draft), -10)}}
 
   defp settings_key({:char, ?s}, state),
-    do: {:ok, %{state | screen: :game, draft: nil, launch_at: nil, due_at: nil}}
+    do: {:ok, %{state | screen: Map.fetch!(state, :settings_from), draft: nil, launch_at: nil, due_at: nil}}
 
   defp settings_key(:enter, state) do
     if Setup.valid?(Map.fetch!(state, :draft)),
@@ -147,6 +159,7 @@ defmodule Badge.App.Goatwars.Page do
 
   @doc "Advances against an explicit clock for deterministic shell tests."
   def advance(%{screen: :settings} = state, _now), do: state
+  def advance(%{screen: :title} = state, _now), do: state
   def advance(%{paused: true} = state, _now), do: state
 
   def advance(%{started: false} = state, now) do
@@ -268,6 +281,7 @@ defmodule Badge.App.Goatwars.Page do
 
   @impl true
   def render(%{screen: :settings} = state), do: render_settings(state)
+  def render(%{screen: :title, art: art}), do: Render.Interstitial.title(art)
 
   def render(%{benchmark: true} = state) do
     started = :erlang.monotonic_time(:microsecond)
@@ -302,13 +316,15 @@ defmodule Badge.App.Goatwars.Page do
   end
 
   defp render_game(state) do
-    overlay(state) ++
-      hud(state) ++
-      cannons(state) ++ Render.scene(Map.fetch!(Map.fetch!(state, :match), :game), Map.fetch!(state, :layout), Map.fetch!(state, :frame))
-  end
+    case caption(state) do
+      nil ->
+        hud(state) ++
+          Render.scene(Map.fetch!(Map.fetch!(state, :match), :game), Map.fetch!(state, :layout), Map.fetch!(state, :frame))
 
-  defp cannons(%{started: false} = state), do: Render.cannons(Map.fetch!(Map.fetch!(state, :match), :game), Map.fetch!(state, :layout))
-  defp cannons(_), do: []
+      {title, hint, color} ->
+        Render.Interstitial.scene(Map.fetch!(state, :art), title, hint, color) ++ hud(state)
+    end
+  end
 
   defp hud(%{
          match: %{game: %{arena: %{next_shrink_tick: deadline}, tick: tick}, scores: scores, bonus: bonus},
@@ -318,11 +334,11 @@ defmodule Badge.App.Goatwars.Page do
     energy = if deadline == nil, do: 0, else: max(deadline - tick, 0)
 
     tail = [
-      {:text, 180, 210, :default16px, 0xFFFFFF, 0x000020, "Energy"},
-      {:text, 180, 224, :default16px, 0xFFFFFF, 0x000020, int(energy)},
-      {:text, 256, 210, :default16px, 0xFFFFFF, 0x000020, "Bonus"},
-      {:text, 256, 224, :default16px, 0xFFFFFF, 0x000020, int(bonus)},
-      {:rect, 0, 209, 320, 31, 0x000020}
+      {:text, 180, 210, :default16px, 0xFFFFFF, 0x241332, "Energy"},
+      {:text, 180, 224, :default16px, 0xFFFFFF, 0x241332, int(energy)},
+      {:text, 256, 210, :default16px, 0xFFFFFF, 0x241332, "Bonus"},
+      {:text, 256, 224, :default16px, 0xFFFFFF, 0x241332, int(bonus)},
+      {:rect, 0, 209, 320, 31, 0x241332}
     ]
 
     hud_scores(1, 4, scores, totals, effects, tail)
@@ -334,8 +350,8 @@ defmodule Badge.App.Goatwars.Page do
     label = if knocked_out?(effects, id), do: "BAA!", else: short(score(scores, id))
 
     [
-      {:text, x, 210, :default16px, 0xFFFFFF, 0x000020, label},
-      {:text, x, 224, :default16px, 0xFFFFFF, 0x000020, short(score(totals, id))},
+      {:text, x, 210, :default16px, 0xFFFFFF, 0x241332, label},
+      {:text, x, 224, :default16px, 0xFFFFFF, 0x241332, short(score(totals, id))},
       {:rect, x, 209, 36, 1, Render.color(id)}
       | hud_scores(id + 1, x + 43, scores, totals, effects, tail)
     ]
@@ -352,25 +368,17 @@ defmodule Badge.App.Goatwars.Page do
   defp knocked_out?([%{id: id} | _], id), do: true
   defp knocked_out?([_ | rest], id), do: knocked_out?(rest, id)
 
-  defp overlay(%{paused: true}), do: panel("PAUSED", "Space to resume", 0xFFFFFF)
+  defp caption(%{paused: true}), do: {"PAUSED", "Space: back to the herd", 0xFFFFFF}
 
-  defp overlay(%{started: false, launch_remaining: remaining}),
-    do: panel(int(div(remaining + 999, 1000)), "READY", 0xFFFFFF)
+  defp caption(%{started: false, launch_remaining: remaining}),
+    do: {int(div(remaining + 999, 1000)), "READY, SET, GOAT!", 0xFFFFFF}
 
-  defp overlay(%{match: %{game: %{status: :draw}}}), do: panel("DRAW", "No bonus", 0xFFFFFF)
+  defp caption(%{match: %{game: %{status: :draw}}}), do: {"DRAW", "No goat left standing", 0xFFFFFF}
 
-  defp overlay(%{match: %{awarded_bonus: {id, bonus}}}),
-    do: panel("Player " <> int(id) <> " Bonus", int(bonus), Render.color(id))
+  defp caption(%{match: %{awarded_bonus: {id, bonus}}}),
+    do: {"PLAYER " <> int(id) <> " WINS", "BONUS " <> int(bonus), Render.color(id)}
 
-  defp overlay(_), do: []
-
-  defp panel(title, hint, color) do
-    [
-      {:text, div(320 - byte_size(title) * 8, 2), 100, :default16px, color, 0x000020, title},
-      {:text, div(320 - byte_size(hint) * 8, 2), 121, :default16px, 0xFFFFFF, 0x000020, hint},
-      {:rect, 64, 91, 192, 54, 0x000020}
-    ]
-  end
+  defp caption(_), do: nil
 
   defp render_settings(state) do
     setup = Map.fetch!(state, :draft)
@@ -380,7 +388,7 @@ defmodule Badge.App.Goatwars.Page do
         slot = Map.fetch!(setup, :slots)[id]
         marker = if id == Map.fetch!(state, :selected), do: ">", else: " "
 
-        text(8, 53 + (id - 1) * 22, marker <> "P" <> int(id), 0xFFFFFF) ++
+        text(8, 53 + (id - 1) * 22, marker <> "P" <> int(id), 0x241332) ++
           text(48, 53 + (id - 1) * 22, mode_label(Map.fetch!(slot, :mode)), 0xFFFFFF) ++
           text(268, 53 + (id - 1) * 22, Setup.key_label(Map.fetch!(slot, :keys)), 0xFFFFFF) ++
           [{:rect, 8, 51 + (id - 1) * 22, 32, 20, Render.color(id)}]
@@ -397,7 +405,7 @@ defmodule Badge.App.Goatwars.Page do
       text(8, 180, "F/V: Step " <> int(Map.fetch!(setup, :step_ms)) <> "ms", 0xFFFFFF) ++
       text(8, 198, "Arrows: mode  C: keys", 0xA4B8C9) ++
       text(8, 217, hint, 0xFFFFFF) ++
-      [{:rect, 0, 24, 320, 216, 0x000020}]
+      [{:rect, 0, 24, 320, 216, 0x241332}]
   end
 
   defp mode_label(:human), do: "Human"

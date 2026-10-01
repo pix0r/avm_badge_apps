@@ -78,7 +78,7 @@ defmodule GoatwarsResources do
           x >= 0 and y >= 0 and w > 0 and h > 0 and x + w <= 320 and y + h <= 240
 
         {:text, x, y, :default16px, _, background, label} ->
-          x >= 0 and y >= 0 and is_binary(label) and (background == :transparent or background == 0x000020)
+          x >= 0 and y >= 0 and is_binary(label) and (background == :transparent or background == 0x241332)
 
         {:scaled_cropped_image, x, y, w, h, _, _, _, _, _, [], {:rgba8888, iw, ih, bytes}} ->
           x >= 0 and y >= 0 and x + w <= 320 and y + h <= 240 and byte_size(bytes) == iw * ih * 4
@@ -155,6 +155,9 @@ defmodule GoatwarsResources do
 
   defp lifecycle(n) do
     state = Page.init()
+    :title = Map.fetch!(state, :screen)
+    true = length(Page.render(state)) > 0
+    {:ok, state} = Page.handle_key(:enter, state)
     state = state |> Page.advance(0) |> Page.advance(3000)
     {:ok, state} = Page.handle_key({:move, :left}, state)
     {:ok, state} = Page.handle_key({:char, ?s}, state)

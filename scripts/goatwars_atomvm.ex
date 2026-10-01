@@ -4,6 +4,10 @@ defmodule GoatwarsReadiness do
   def start do
     rounds(1)
     state = Page.init()
+    :title = Map.fetch!(state, :screen)
+    ^state = Page.advance(state, -100_000)
+    true = length(Page.render(state)) > 0
+    {:ok, state} = Page.handle_key(:enter, state)
     0 = state.match.game.tick
     state = Page.advance(state, -10_000)
     state = Page.advance(state, -7_000)
@@ -24,7 +28,7 @@ defmodule GoatwarsReadiness do
     2 = Page.advance(restarted, 3110).match.game.tick
 
     controls =
-      Enum.reduce([{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}], Page.init(), fn event, page ->
+      Enum.reduce([{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}], Page.init(countdown_ms: 0), fn event, page ->
         {:ok, next} = Page.handle_key(event, page)
         next
       end)

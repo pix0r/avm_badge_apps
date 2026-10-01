@@ -78,6 +78,35 @@ defmodule AvmBadgeApps.UsbTest do
     assert File.stat!(paths.assets).size <= 262_144
   end
 
+  test "USB chooses the smallest sufficient subset when a greedy prefix overflows firmware", %{dir: dir} do
+    inputs = fixtures(dir)
+    baseline = Usb.build!(inputs, Path.join(dir, "baseline"))
+    padding_size = 671_744 - 7_000 - File.stat!(baseline.firmware).size
+    ending = <<0::32, 0::32, 0::32, "end", 0>>
+    firmware = File.read!(inputs.firmware)
+    prefix = binary_part(firmware, 0, byte_size(firmware) - 16)
+    File.write!(inputs.firmware, [prefix, packed_section(padding_size, "firmware-padding"), ending])
+    <<header::binary-size(24), _::binary>> = File.read!(inputs.game)
+    sections = for size <- [6_000, 4_500, 2_000, 1_000], do: packed_section(size, "synthetic-#{size}.beam")
+    File.write!(inputs.game, [header, sections, ending])
+    File.write!(inputs.assets, [header, packed_section(255_604, "assets-padding"), ending])
+
+    paths = Usb.build!(inputs, Path.join(dir, "tight"))
+    assert File.stat!(paths.firmware).size == 671_744
+    assert File.stat!(paths.assets).size == 262_144
+
+    for {pack, expected} <- [
+          {paths.firmware, [~c"synthetic-6000.beam", ~c"synthetic-1000.beam"]},
+          {paths.assets, [~c"synthetic-4500.beam", ~c"synthetic-2000.beam"]}
+        ] do
+      names = packed_names(File.read!(pack))
+      assert Enum.filter(names, &List.starts_with?(&1, ~c"synthetic-")) == expected
+      bytes = File.read!(pack)
+      assert binary_part(bytes, byte_size(bytes) - 16, 16) == ending
+      assert length(:binary.matches(bytes, ending)) == 1
+    end
+  end
+
   test "oversized assets fail before an installable output is produced", %{dir: dir} do
     inputs = fixtures(dir)
     File.write!(inputs.assets, File.read!(inputs.assets) <> :binary.copy(<<0>>, 262_144))
@@ -85,6 +114,22 @@ defmodule AvmBadgeApps.UsbTest do
     assert_raise Mix.Error, ~r/assets.*partition/, fn -> Usb.build!(inputs, output) end
     refute File.exists?(Path.join(output, "firmware.avm"))
     refute File.exists?(Path.join(output, "assets.avm"))
+  end
+
+  defp packed_names(<<_::binary-size(24), sections::binary>>), do: section_names(sections)
+
+  defp section_names(<<0::32, 0::32, 0::32, "end", 0>>), do: []
+
+  defp section_names(<<size::32, _::binary>> = bytes) do
+    <<section::binary-size(size), rest::binary>> = bytes
+    <<_::binary-size(12), named::binary>> = section
+    [name | _] = :binary.split(named, <<0>>)
+    [to_charlist(name) | section_names(rest)]
+  end
+
+  defp packed_section(size, name) do
+    prefix = <<size::32, 0::32, 0::32, name::binary, 0>>
+    prefix <> :binary.copy(<<0>>, size - byte_size(prefix))
   end
 
   defp fixtures(dir) do
