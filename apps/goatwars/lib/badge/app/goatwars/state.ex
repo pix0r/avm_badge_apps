@@ -11,8 +11,8 @@ defmodule Badge.App.Goatwars.State do
           config: Config.t(),
           arena: Arena.t(),
           players: %{integer() => Player.t()},
-          occupied: %{Player.position() => integer()},
-          trails: %{integer() => [Player.position()]},
+          occupied: %{Player.position() => integer()} | {pos_integer(), pos_integer(), binary()},
+          trails: %{integer() => [Player.position()] | binary()},
           tick: non_neg_integer(),
           status: status()
         }

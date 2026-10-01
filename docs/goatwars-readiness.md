@@ -1,9 +1,13 @@
 # GoatWars hardware-free readiness
 
+The latest optimization and current benchmark evidence are in
+[performance verification](goatwars-performance.md). Older measurements below
+record the earlier readiness stages.
+
 ## Scope and verdict
 
 Rebased onto GoatWars refactor `50fe6d6` plus the fixes on
-`codex/goatwars-hardware-readiness`, against Store firmware
+`codex/beamwars-hardware-readiness`, against Store firmware
 `ff532649da2acb213680f2e578f541a21380aaef` (`origin/feature/add-app-store`).
 The original development checkouts were not modified. The readiness scripts,
 fixtures and integration gates now use the refactored GoatWars namespace and layout.
@@ -18,15 +22,15 @@ known unresolved hardware risk.
 
 | Gate | Result |
 | --- | --- |
-| Apps host suite | 138 tests, zero failures |
+| Apps host suite | 144 tests, zero failures |
 | Selected firmware suite | 1,408 tests, zero failures; two asset-regeneration tests excluded |
 | Native badge-v1 execution | 20 seeded matches plus countdown, pause, settings, restart and render assertions pass |
-| Exact VM compatibility | All imports and 53 instruction types in 18 game modules resolve against pinned VM sources/libraries |
+| Exact VM compatibility | All imports and 59 instruction types in 19 game modules resolve against pinned VM sources/libraries |
 | Actual released boot library | Real app pack loads dynamically; imported library exports and page lifecycle pass on native AtomVM with released boot.avm |
-| Store packaging | 50,296 bytes, under 65,536-byte limit by 15,240 bytes; native pack and host pack tests pass |
+| Store packaging | About 55 KB, under the 65,536-byte limit; native pack and host pack tests pass |
 | Store authentication | Disposable-key signed pack verifies; tampering is rejected; no production key or publishing used |
-| Real firmware UI | Three integration scenarios pass: empty NVS launch/key routing, retained installation with offline reload failure, crashed game recovery to Home |
-| Resource stress | Four AI profiles and 25 repeated entries pass at all three heap budgets; dense render succeeds at highest budget and reports expected OOM at lower budgets |
+| Real firmware UI | Four integration scenarios pass, including ticker backpressure: empty NVS launch/key routing, retained installation with offline reload failure, crashed game recovery to Home |
+| Resource stress | Four presets, a dense board, 25 entries and 100 rounds pass at 4,096/8,192/16,384 words; 32 retained frames pass at 32,768 words; binary memory is checked separately |
 | Simulator | Built-in splash/home/reboot check passes; game interaction covered separately through real UI |
 | First installation commands | Fake-flasher tests cover base image offsets/checksum refusal, modern/legacy/Python esptool discovery and error propagation |
 | Partition capacity | Released VM/boot plus built assets/main fit all source and released binary partitions |
@@ -144,3 +148,13 @@ The formerly deferred archive-edit regression now passes in the full suite.
 See [resource measurements](goatwars-resources.md) for the controlled native
 comparison. The new physical test remains pending; the script was rebuilt in
 build-only mode and no device was reflashed by this chat.
+
+## October 1 bitmap optimization
+
+The full-board bitmap build meets the local 10× CPU target, including the pinned
+C rasterizer. State at the reported tick97 point and repeated rounds pass on
+native AtomVM. The ticker uses backpressure. The installer now distributes game
+modules between main and assets while preserving every existing asset.
+All work remains in the isolated paired worktrees; the badge was untouched.
+See [performance verification](goatwars-performance.md) for commands, limits and
+T/M device timing controls.

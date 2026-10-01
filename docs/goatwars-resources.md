@@ -1,5 +1,9 @@
 # GoatWars resource testing
 
+Current October 1 bitmap, binary-memory and complete CPU results are in
+[performance verification](goatwars-performance.md). The sections below record
+earlier investigation; references to unrun native tests predate that work.
+
 ## Snake hardware report — 2026-09-29
 
 Mike relayed this report from Mathias Wingert, author of the Snake game:

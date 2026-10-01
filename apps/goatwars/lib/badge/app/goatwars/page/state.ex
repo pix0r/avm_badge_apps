@@ -4,6 +4,9 @@ defmodule Badge.App.Goatwars.Page.State do
     Map.merge(
       %{
         draft: nil,
+        compact: true,
+        benchmark: false,
+        bench_previous: nil,
         result_until: nil,
         launch_at: nil,
         round: 1,

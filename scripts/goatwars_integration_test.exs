@@ -1,7 +1,9 @@
 root = Path.expand("..", __DIR__)
 Code.require_file("goatwars_core.exs", __DIR__)
+
 for file <- ~w(render/layout render/explosion render page/state page),
-  do: Code.require_file(Path.join(root, "apps/goatwars/lib/badge/app/goatwars/" <> file <> ".ex"))
+    do: Code.require_file(Path.join(root, "apps/goatwars/lib/badge/app/goatwars/" <> file <> ".ex"))
+
 ExUnit.start()
 
 defmodule GoatwarsIntegrationTest do
@@ -91,6 +93,32 @@ defmodule GoatwarsIntegrationTest do
     assert :sys.get_state(Badge.UI).page == Badge.Page.Home
     assert Process.alive?(Process.whereis(Badge.UI))
     assert byte_size(Badge.Sim.Nvs.get("badge", "apps")) > 0
+  end
+
+  test "slow UI work cannot accumulate rendering ticks ahead of keys" do
+    pid = Process.whereis(Badge.UI)
+    :ok = :sys.suspend(pid)
+
+    try do
+      Process.sleep(450)
+      {:messages, messages} = Process.info(pid, :messages)
+
+      ticks =
+        Enum.count(messages, fn
+          :render_tick -> true
+          {:render_tick, _} -> true
+          _ -> false
+        end)
+
+      assert ticks <= 1
+    after
+      :ok = :sys.resume(pid)
+    end
+
+    Badge.UI.goto(Page)
+    _ = :sys.get_state(Badge.UI)
+    Badge.UI.key_event({:nav, :home})
+    assert :sys.get_state(Badge.UI).page == Badge.Page.Home
   end
 
   defp install do

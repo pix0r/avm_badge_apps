@@ -20,7 +20,15 @@ defmodule Badge.App.Goatwars.Render do
   end
 
   @doc "Heads and trails over a grid; warning marks cover the ring about to disappear."
-  def scene(%{occupied: _} = game, %{cell: _} = layout, phase \\ nil) do
+  def scene(game, layout, phase \\ nil)
+
+  def scene(%{occupied: {_, _, _}} = game, layout, phase) do
+    heads(game, layout) ++
+      warning_ring(game, layout, phase || Map.fetch!(game, :tick)) ++
+      trails(game, layout) ++ frame(Map.fetch!(game, :arena), layout)
+  end
+
+  def scene(%{occupied: _} = game, %{cell: _} = layout, phase) do
     phase = phase || Map.fetch!(game, :tick)
 
     heads(game, layout) ++
@@ -84,6 +92,18 @@ defmodule Badge.App.Goatwars.Render do
       {x, y} = point(Map.fetch!(player, :position), layout)
       {:rect, x, y, Map.fetch!(layout, :cell), Map.fetch!(layout, :cell), 0xFFFFFF}
     end
+  end
+
+  defp trails(%{occupied: {width, height, bytes}, arena: arena}, %{x: x, y: y, cell: cell}) do
+    left = Map.fetch!(arena, :left)
+    top = Map.fetch!(arena, :top)
+    w = Map.fetch!(arena, :right) - left + 1
+    h = Map.fetch!(arena, :bottom) - top + 1
+
+    [
+      {:scaled_cropped_image, x + left * cell, y + top * cell, w * cell, h * cell, :transparent, left, top, cell, cell, [],
+       {:rgba8888, width, height, bytes}}
+    ]
   end
 
   defp trails(game, layout) do

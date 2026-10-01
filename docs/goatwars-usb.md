@@ -1,6 +1,6 @@
 # Install GoatWars over USB
 
-This is an offline bench build: GoatWars lives in the assets partition and is
+This is an offline bench build: GoatWars modules are distributed between main and assets and the game is
 listed on the home grid. It runs after reboot without Wi-Fi or a Store download.
 The Store firmware is included; the game's public Store installation is separate.
 
@@ -41,8 +41,8 @@ A different firmware checkout may require rebuilding dependencies first.
 
 ## What it writes
 
-- `assets.avm` at `0x278000`: existing fonts, logo and animation plus GoatWars code.
-- `firmware.avm` at `0x2B8000`: Store firmware with GoatWars added to the home grid.
+- `assets.avm` at `0x278000`: existing fonts, logo and animation plus game modules.
+- `firmware.avm` at `0x2B8000`: Store firmware, game modules and the GoatWars home-grid entry.
 
 NVS, the bootloader, partition table, VM, boot library and alternate firmware slot
 are preserved. This board's base artifacts match pinned `badge-v1`; a full base
@@ -84,3 +84,10 @@ When ready to resume verification, run `mix test` and
 uses fake tools and never accesses hardware. The full host suite, including the archive-edit regression, passed when
 verification resumed on October 1. The badge now uses a simple obstacle-avoidance
 controller; its settings offer Human, AI Simple and Inactive.
+
+## Performance diagnostics
+
+The new default uses a full-size bitmap board and a ticker with backpressure.
+Press T in the game for timing logs; M then restarts the same seed in legacy or
+bitmap mode. The [performance guide](goatwars-performance.md) explains the local
+benchmarks, physical checks and what the measurements cover.

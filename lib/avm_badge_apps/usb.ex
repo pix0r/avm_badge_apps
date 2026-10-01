@@ -20,7 +20,7 @@ defmodule AvmBadgeApps.Usb do
   end
 
   def build!(inputs, output) do
-    if File.stat!(inputs.assets).size + File.stat!(inputs.game).size > 262_144,
+    if File.stat!(inputs.assets).size > 262_144,
       do: Mix.raise("assets and game exceed assets partition")
 
     if File.stat!(inputs.game).size > Badge.Store.max_pack(),
@@ -40,7 +40,15 @@ defmodule AvmBadgeApps.Usb do
       main = Path.join(stage, "firmware.avm")
       assets = Path.join(stage, "assets.avm")
       :ok = ExAtomVM.PackBEAM.make_avm([{pages, :beam}, {stripped, :avm}], main)
-      :ok = ExAtomVM.PackBEAM.make_avm([{inputs.assets, :avm}, {inputs.game, :avm}], assets)
+      {extra, remaining} = split_game!(inputs.game, File.stat!(inputs.assets).size, stage)
+
+      if extra do
+        combined = Path.join(stage, "combined.avm")
+        :ok = ExAtomVM.PackBEAM.make_avm([{main, :avm}, {extra, :avm}], combined)
+        File.rename!(combined, main)
+      end
+
+      :ok = ExAtomVM.PackBEAM.make_avm([{inputs.assets, :avm}, {remaining, :avm}], assets)
       check!(main, 671_744, "firmware")
       check!(assets, 262_144, "assets")
       paths = %{firmware: Path.join(output, "firmware.avm"), assets: Path.join(output, "assets.avm")}
@@ -56,6 +64,33 @@ defmodule AvmBadgeApps.Usb do
       File.rm_rf!(stage)
     end
   end
+
+  defp split_game!(game, assets_size, stage) do
+    needed = assets_size + File.stat!(game).size - 40 - 262_144
+
+    if needed <= 0 do
+      {nil, game}
+    else
+      <<header::binary-size(24), bytes::binary>> = File.read!(game)
+      {extra, remaining} = split_sections(bytes, needed, [])
+      extra_path = Path.join(stage, "game-main.avm")
+      remaining_path = Path.join(stage, "game-assets.avm")
+      ending = <<0::32, 0::32, 0::32, "end", 0>>
+      File.write!(extra_path, [header, :lists.reverse(extra), ending])
+      File.write!(remaining_path, [header, remaining])
+      {extra_path, remaining_path}
+    end
+  end
+
+  defp split_sections(bytes, needed, extra) when needed <= 0, do: {extra, bytes}
+
+  defp split_sections(<<size::32, _::binary>> = bytes, needed, extra)
+       when size >= 16 and byte_size(bytes) >= size do
+    <<section::binary-size(size), rest::binary>> = bytes
+    split_sections(rest, needed - size, [section | extra])
+  end
+
+  defp split_sections(_, _, _), do: Mix.raise("assets and game exceed partition capacity")
 
   defp strip_pages!(input, output) do
     <<header::binary-size(24), sections::binary>> = File.read!(input)

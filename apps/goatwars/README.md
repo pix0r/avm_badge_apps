@@ -33,6 +33,8 @@ Exit the simulator's IEx with Ctrl-C, then `a`.
 | R | New round, preserve total scores |
 | S | Open / cancel player settings |
 | B | Return all riders to default AI |
+| T | Toggle performance timing logs |
+| M, while timing is on | Restart seed 1 in legacy/bitmap mode |
 | Esc, then F1 | Home, then reopen GoatWars |
 
 In settings, Up/Down selects a player; Left/Right cycles Human, AI Simple and
@@ -46,7 +48,11 @@ The last press before a tick wins. Held-key integration remains deferred.
 
 ## Rules and configuration
 
-The badge preset is 78×46 cells at 100 ms per step. Blue starts at the bottom,
+The badge preset is 78×46 cells at 100 ms per step, stored as a fixed bitmap
+with packed trails and rendered as one scaled image. [Performance verification](../../docs/goatwars-performance.md)
+contains benchmarks and device timing instructions.
+
+ Blue starts at the bottom,
 red at the top, green at the left and yellow at the right, facing inward.
 The core accepts arbitrary rosters of two or more players through `Game.new/2`;
 `Match.demo/3` supplies four edge spawns and requires dimensions at least 2×2.

@@ -21,4 +21,11 @@ for entry in loader GoatwarsReadiness GoatwarsResources; do
   "$build/src/AtomVM" "$out/$entry.avm" > "$out/$entry.log" 2>&1 || { cat "$out/$entry.log"; exit 1; }
   tail -n 2 "$out/$entry.log"
 done
+if [[ -n "${GOATWARS_USB_OUTPUT:-}" ]]; then
+  mkdir -p "$out/usb-loader"
+  elixirc -o "$out/usb-loader" "$root/scripts/goatwars_usb_loader.ex"
+  elixir -e 'Code.require_file(Path.join(Enum.at(System.argv(),0),"deps/exatomvm/lib/packbeam.ex")); [_,out,boot]=System.argv(); entry=Path.join(out,"usb-loader/Elixir.GoatwarsUsbLoader.beam"); :ok=ExAtomVM.PackBEAM.make_avm([{entry,:beam_start},{boot,:avm}],Path.join(out,"usb-loader.avm"))' "$firmware" "$out" "$boot"
+  "$build/src/AtomVM" "$out/usb-loader.avm" > "$out/usb-loader.log" 2>&1 || { cat "$out/usb-loader.log"; exit 1; }
+  tail -n 2 "$out/usb-loader.log"
+fi
 printf 'Results: %s\n' "$out"

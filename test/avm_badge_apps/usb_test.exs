@@ -34,17 +34,46 @@ defmodule AvmBadgeApps.UsbTest do
     original = File.read!(paths.firmware)
     assert :binary.match(original, "avm_badge/priv/application.bin") != :nomatch
     name = "avm_badge/priv/application.bin"
-    File.write!(inspected, :binary.replace(original, <<2::32, 0::32, name::binary>>,
-      <<0::32, 0::32, name::binary>>))
+    File.write!(inspected, :binary.replace(original, <<2::32, 0::32, name::binary>>, <<0::32, 0::32, name::binary>>))
     firmware = :packbeam_api.list(to_charlist(inspected))
-    names = Enum.map(firmware, & :packbeam_api.get_element_name/1)
+    names = Enum.map(firmware, &:packbeam_api.get_element_name/1)
     assert Enum.count(names, &(&1 == ~c"Elixir.Badge.Pages.beam")) == 1
     assert ~c"Elixir.UsbFixtureBoot.beam" in names
-    assert Enum.any?(firmware, & :packbeam_api.is_entrypoint/1)
+    assert Enum.any?(firmware, &:packbeam_api.is_entrypoint/1)
     assets = :packbeam_api.list(to_charlist(paths.assets))
-    names = Enum.map(assets, & :packbeam_api.get_element_name/1)
+    names = Enum.map(assets, &:packbeam_api.get_element_name/1)
     assert ~c"assets/priv/logo/test.rgba" in names
     assert ~c"Elixir.Badge.App.Goatwars.Page.beam" in names
+    assert File.stat!(paths.firmware).size <= 671_744
+    assert File.stat!(paths.assets).size <= 262_144
+  end
+
+  test "USB splits game modules across both packs when assets have little room", %{dir: dir} do
+    inputs = fixtures(dir)
+    path = Path.join(dir, "assets/priv/padding.bin")
+    File.write!(path, :binary.copy(<<0>>, 210_000))
+
+    File.cd!(dir, fn ->
+      :ok = :packbeam_api.create(to_charlist(inputs.assets), [~c"assets/priv/padding.bin"], %{lib: true})
+    end)
+
+    assert File.stat!(inputs.assets).size + File.stat!(inputs.game).size > 262_144
+    paths = Usb.build!(inputs, Path.join(dir, "split"))
+    inspected = Path.join(dir, "split-inspect.avm")
+    name = "avm_badge/priv/application.bin"
+    bytes = File.read!(paths.firmware)
+    File.write!(inspected, :binary.replace(bytes, <<2::32, 0::32, name::binary>>, <<0::32, 0::32, name::binary>>))
+
+    names =
+      for pack <- [inspected, paths.assets], section <- :packbeam_api.list(to_charlist(pack)), do: :packbeam_api.get_element_name(section)
+
+    modules = AvmBadgeApps.Pack.beams!(Mix.Project.compile_path(), "goatwars")
+
+    for module <- modules do
+      name = module |> Path.basename() |> to_charlist()
+      assert Enum.count(names, &(&1 == name)) == 1
+    end
+
     assert File.stat!(paths.firmware).size <= 671_744
     assert File.stat!(paths.assets).size <= 262_144
   end
@@ -68,15 +97,22 @@ defmodule AvmBadgeApps.UsbTest do
     metadata = Path.join(dir, "application.bin")
     File.write!(metadata, :erlang.term_to_binary({:application, :badge, []}))
     main = Path.join(dir, "base.avm")
-    :ok = ExAtomVM.PackBEAM.make_avm([{boot_path, :beam_start}, {pages_path, :beam},
-      {metadata, [file: "avm_badge/priv/application.bin"]}], main)
+
+    :ok =
+      ExAtomVM.PackBEAM.make_avm(
+        [{boot_path, :beam_start}, {pages_path, :beam}, {metadata, [file: "avm_badge/priv/application.bin"]}],
+        main
+      )
+
     logo = Path.join(dir, "assets/priv/logo/test.rgba")
     File.mkdir_p!(Path.dirname(logo))
     File.write!(logo, <<1, 2, 3, 4>>)
     assets = Path.join(dir, "base-assets.avm")
+
     File.cd!(dir, fn ->
       :ok = :packbeam_api.create(to_charlist(assets), [~c"assets/priv/logo/test.rgba"], %{lib: true})
     end)
+
     game = Path.join(dir, "goatwars.avm")
     beams = AvmBadgeApps.Pack.beams!(Mix.Project.compile_path(), "goatwars")
     :ok = ExAtomVM.PackBEAM.make_avm(Enum.map(beams, &{&1, :beam}), game)

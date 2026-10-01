@@ -5,7 +5,7 @@ beams = Path.wildcard(Path.join(out, "beams/*.beam"))
 apps =
   Enum.filter(beams, &(Path.basename(&1) |> String.starts_with?("Elixir.Badge.App.Goatwars.")))
 
-if length(apps) != 18, do: raise("expected all 18 game modules")
+if length(apps) != 19, do: raise("expected all 19 game modules")
 pack = Path.join(out, "goatwars.avm")
 :ok = ExAtomVM.PackBEAM.make_avm(Enum.map(apps, &{&1, :beam}), pack)
 size = File.stat!(pack).size

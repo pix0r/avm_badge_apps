@@ -165,6 +165,26 @@ defmodule Badge.App.Goatwars.PageTest do
     assert restarted.scores == state.scores
   end
 
+  test "timing diagnostics can compare bitmap and legacy storage on the badge" do
+    state = Page.init(countdown_ms: 0)
+    assert Page.handle_key({:char, ?m}, state) == :ignore
+    {:ok, measured} = Page.handle_key({:char, ?t}, state)
+    assert measured.benchmark
+    measured = Enum.reduce(0..19, measured, &Page.advance(&2, &1 * 100))
+    {:ok, legacy} = Page.handle_key({:char, ?m}, measured)
+    assert is_map(legacy.match.game.occupied)
+    assert legacy.scores == %{}
+    {:ok, bitmap} = Page.handle_key({:char, ?m}, legacy)
+    assert is_tuple(bitmap.match.game.occupied)
+    assert legacy.match.controllers == bitmap.match.controllers
+    assert bitmap.match.game.tick == 0
+    state = Enum.reduce(0..96, measured, &Page.advance(&2, &1 * 100))
+    log = ExUnit.CaptureIO.capture_io(fn -> Page.render(state) end)
+    assert log =~ "GW_DEVICE mode=bitmap tick=97 phase=render"
+    {:ok, quiet} = Page.handle_key({:char, ?t}, state)
+    assert ExUnit.CaptureIO.capture_io(fn -> Page.render(quiet) end) == ""
+  end
+
   test "footer text and player stripes clear the bottom arena wall" do
     state = Page.init()
     wall_y = state.layout.y + state.match.game.config.height * state.layout.cell

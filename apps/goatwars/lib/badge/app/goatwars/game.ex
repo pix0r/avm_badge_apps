@@ -4,7 +4,7 @@ defmodule Badge.App.Goatwars.Game do
   omission preserves heading. Explosions and retraction clear trails when enabled.
   Contraction removes the outer ring before movement and sweeps bikes on it.
   """
-  alias Badge.App.Goatwars.{Arena, Config, Player, State}
+  alias Badge.App.Goatwars.{Arena, Board, Config, Player, State}
 
   @type event :: {:crashed, integer(), Player.position()} | {:arena_shrank, non_neg_integer()}
   @type inputs :: %{integer() => :left | :right}
@@ -20,6 +20,19 @@ defmodule Badge.App.Goatwars.Game do
       {:ok, State.new(%{config: config, arena: arena, players: players, occupied: occupied, trails: trails})}
     end
   end
+
+  @doc "Uses a fixed bitmap and packed trails for the four badge players."
+  def compact(%{occupied: occupied} = state) when is_map(occupied) do
+    trails =
+      Enum.reduce(Map.fetch!(state, :trails), %{}, fn {id, cells}, trails ->
+        bytes = Enum.reduce(:lists.reverse(cells), <<>>, fn {x, y}, bytes -> <<x::16, y::16, bytes::binary>> end)
+        Map.put(trails, id, bytes)
+      end)
+
+    %{state | occupied: Board.new(Map.fetch!(state, :config), occupied), trails: trails}
+  end
+
+  def compact(state), do: state
 
   @spec step(State.t(), inputs()) :: {:ok, State.t(), [event()]} | {:error, :invalid_inputs}
   def step(%{players: _, config: _} = state, inputs) do
@@ -55,7 +68,7 @@ defmodule Badge.App.Goatwars.Game do
     trails =
       Enum.reduce(players, Map.fetch!(state, :trails), fn
         {id, %{alive: true, position: position}}, trails ->
-          Map.put(trails, id, [position | Map.get(trails, id, [])])
+          Map.put(trails, id, prepend(position, Map.get(trails, id, [])))
 
         _, trails ->
           trails
@@ -66,7 +79,7 @@ defmodule Badge.App.Goatwars.Game do
     occupied =
       Enum.reduce(players, occupied, fn
         {id, %{alive: true, position: position}}, occupied ->
-          Map.put(occupied, position, id)
+          Board.put(occupied, position, id)
 
         _, occupied ->
           occupied
@@ -93,7 +106,7 @@ defmodule Badge.App.Goatwars.Game do
     collision? =
       not Arena.contains?(arena, Map.fetch!(original, :position)) or
         not Arena.contains?(arena, Map.fetch!(proposed, :position)) or
-        Map.has_key?(Map.fetch!(state, :occupied), Map.fetch!(proposed, :position)) or
+        Board.has?(Map.fetch!(state, :occupied), Map.fetch!(proposed, :position)) or
         Map.fetch!(destinations, Map.fetch!(proposed, :position)) > 1
 
     if collision? do
@@ -102,8 +115,8 @@ defmodule Badge.App.Goatwars.Game do
       {Map.put(players, Map.fetch!(dead, :id), dead), occupied,
        [{:crashed, Map.fetch!(dead, :id), Map.fetch!(proposed, :position)} | crashes]}
     else
-      {Map.put(players, Map.fetch!(proposed, :id), proposed), Map.put(occupied, Map.fetch!(proposed, :position), Map.fetch!(proposed, :id)),
-       crashes}
+      {Map.put(players, Map.fetch!(proposed, :id), proposed),
+       Board.put(occupied, Map.fetch!(proposed, :position), Map.fetch!(proposed, :id)), crashes}
     end
   end
 
@@ -126,11 +139,20 @@ defmodule Badge.App.Goatwars.Game do
     %{state | occupied: occupied, trails: trails}
   end
 
+  defp prepend({x, y}, trail) when is_binary(trail), do: <<x::16, y::16, trail::binary>>
+  defp prepend(position, trail), do: [position | trail]
+
   defp retract(trail, occupied, _id, 0), do: {occupied, trail}
   defp retract([], occupied, _id, _count), do: {occupied, []}
+  defp retract(<<>>, occupied, _id, _count), do: {occupied, <<>>}
+
+  defp retract(<<x::16, y::16, rest::binary>>, occupied, id, count) do
+    occupied = if Board.get(occupied, {x, y}) == id, do: Board.delete(occupied, {x, y}), else: occupied
+    retract(rest, occupied, id, count - 1)
+  end
 
   defp retract([cell | rest], occupied, id, count) do
-    occupied = if Map.get(occupied, cell) == id, do: Map.delete(occupied, cell), else: occupied
+    occupied = if Board.get(occupied, cell) == id, do: Board.delete(occupied, cell), else: occupied
     retract(rest, occupied, id, count - 1)
   end
 
@@ -145,7 +167,7 @@ defmodule Badge.App.Goatwars.Game do
       Enum.reduce(offsets, occupied, fn dx, occupied ->
         Enum.reduce(offsets, occupied, fn dy, occupied ->
           if dx * dx + dy * dy <= radius * radius,
-            do: Map.delete(occupied, {cx + dx, cy + dy}),
+            do: Board.delete(occupied, {cx + dx, cy + dy}),
             else: occupied
         end)
       end)

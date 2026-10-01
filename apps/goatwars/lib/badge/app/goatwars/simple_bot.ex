@@ -1,7 +1,7 @@
 defmodule Badge.App.Goatwars.SimpleBot do
   @moduledoc "Local obstacle avoidance: keep heading, otherwise try each side once."
   @behaviour Badge.App.Goatwars.Controller
-  alias Badge.App.Goatwars.{Arena, Player}
+  alias Badge.App.Goatwars.{Arena, Board, Player}
   alias Badge.App.Goatwars.Bot.Profile
 
   @impl true
@@ -23,7 +23,7 @@ defmodule Badge.App.Goatwars.SimpleBot do
   defp turn([choice | rest], player, arena, occupied) do
     %{position: position} = Player.move(player, choice)
 
-    if Arena.contains?(arena, position) and not Map.has_key?(occupied, position),
+    if Arena.contains?(arena, position) and not Board.has?(occupied, position),
       do: choice,
       else: turn(rest, player, arena, occupied)
   end

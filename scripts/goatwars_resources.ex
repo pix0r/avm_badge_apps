@@ -1,19 +1,19 @@
 defmodule GoatwarsResources do
-  alias Badge.App.Goatwars.Page
+  alias Badge.App.Goatwars.{Page, Render}
 
   def start do
     :io.format(~c"Word size: ~p bytes~n", [:erlang.system_info(:wordsize)])
-    fixtures = [:beginner, :intermediate, :expert, :pro, :dense, :lifecycle]
-    results = for fixture <- fixtures, limit <- [32_768, 65_536, 131_072], do: run(fixture, limit)
+    fixtures = [:beginner, :intermediate, :expert, :pro, :dense, :lifecycle, :soak]
+    results = for fixture <- fixtures, limit <- [4096, 8192, 16384], do: run(fixture, limit)
+    results = [run(:queue, 32768) | results]
     true = accepted?(results)
-    :io.format(~c"Resource fixtures passed at 131072 words~n")
+    :io.format(~c"Resource fixtures passed at 4096, 8192 and 16384 words~n")
     :ok
   end
 
   def accepted?(results) do
     Enum.all?(results, fn
       {_, _, :ok} -> true
-      {:dense, limit, {:out_of_memory, _}} when limit < 131_072 -> true
       _ -> false
     end)
   end
@@ -54,17 +54,18 @@ defmodule GoatwarsResources do
 
   def fixture(:dense) do
     state = Page.init(countdown_ms: 0)
-    occupied = for x <- 0..77, y <- 0..45, do: {{x, y}, rem(x + y, 4) + 1}
 
-    game = %{
-      state.match.game
-      | occupied: Map.new(occupied),
-        trails: Map.new(for id <- 1..4, do: {id, for({position, ^id} <- occupied, do: position)})
-    }
+    rows =
+      for y <- 0..45 do
+        pixels = for x <- 0..77, do: <<Render.color(rem(x + y, 4) + 1)::24, 255>>
+        :erlang.list_to_binary(pixels)
+      end
+
+    game = %{state.match.game | occupied: {78, 46, :erlang.list_to_binary(rows)}}
 
     state = %{state | match: %{state.match | game: game}}
     items = Page.render(state)
-    true = length(items) > 3500
+    true = length(items) < 60
 
     true =
       Enum.all?(items, fn
@@ -73,32 +74,59 @@ defmodule GoatwarsResources do
 
         {:text, x, y, :default16px, _, :transparent, label} ->
           x >= 0 and y >= 0 and is_binary(label)
+
+        {:scaled_cropped_image, x, y, w, h, _, _, _, _, _, [], {:rgba8888, iw, ih, bytes}} ->
+          x >= 0 and y >= 0 and x + w <= 320 and y + h <= 240 and byte_size(bytes) == iw * ih * 4
       end)
 
-    {length(items), :erts_debug.flat_size(state), :erts_debug.flat_size(items),
-     :erlang.process_info(self(), :heap_size)}
+    {length(items), :erts_debug.flat_size(state), :erts_debug.flat_size(items), :erlang.process_info(self(), :heap_size)}
   end
 
   def fixture(:lifecycle), do: lifecycle(25)
+  def fixture(:soak), do: soak(100, 0, 0)
+  def fixture(:queue), do: queued(Page.init(countdown_ms: 0), 0, [], 0)
 
   def fixture(level) do
     state =
       Page.init(countdown_ms: 0, profiles: %{1 => level, 2 => level, 3 => level, 4 => level})
 
-    play(state, 0, 0, 0)
+    play(state, 0, 0, 0, 0)
   end
 
-  defp play(state, now, max_items, max_state) do
+  defp play(state, now, max_items, max_state, max_binary) do
     state = Page.advance(state, now)
     [] = state.match.replay
     items = Page.render(state)
     max_items = max(max_items, length(items))
     max_state = max(max_state, :erts_debug.flat_size(state))
+    max_binary = max(max_binary, :erlang.memory(:binary))
+    true = max_binary < 350_000
 
     if state.match.game.status == :running do
-      play(state, now + 100, max_items, max_state)
+      play(state, now + 100, max_items, max_state, max_binary)
     else
-      {state.match.game.tick, max_items, max_state, :erlang.process_info(self(), :heap_size)}
+      {state.match.game.tick, max_items, max_state, :erlang.process_info(self(), :total_heap_size), max_binary}
+    end
+  end
+
+  defp soak(0, max_state, max_binary), do: {100, max_state, max_binary, :erlang.memory(:binary)}
+
+  defp soak(n, max_state, max_binary) do
+    {_, _, words, _, bytes} = play(Page.init(countdown_ms: 0, seed: n), 0, 0, 0, 0)
+    true = words < 800
+    soak(n - 1, max(max_state, words), max(max_binary, bytes))
+  end
+
+  defp queued(state, now, queue, max_binary) do
+    state = Page.advance(state, now)
+    queue = :lists.sublist([Page.render(state) | queue], 32)
+    max_binary = max(max_binary, :erlang.memory(:binary))
+    true = max_binary < 1_000_000
+
+    if state.match.game.status == :running do
+      queued(state, now + 100, queue, max_binary)
+    else
+      {length(queue), :erts_debug.flat_size(queue), max_binary}
     end
   end
 

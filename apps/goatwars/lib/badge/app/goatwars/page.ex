@@ -16,11 +16,13 @@ defmodule Badge.App.Goatwars.Page do
     setup = Setup.new(Keyword.get(options, :profiles, %{}))
     seed = Keyword.get(options, :seed, 1)
     match = Match.demo(rules, seed, controllers(setup, seed), record_replay: false)
+    match = if Keyword.get(options, :compact, true), do: %{match | game: Game.compact(Map.fetch!(match, :game))}, else: match
     setup = %{setup | retract: Map.fetch!(Map.fetch!(Map.fetch!(match, :game), :config), :retract_speed) > 0}
     countdown = Keyword.get(options, :countdown_ms, 3000)
 
     State.new(%{
       match: match,
+      compact: Keyword.get(options, :compact, true),
       layout: Render.layout(Map.fetch!(Map.fetch!(match, :game), :config)),
       setup: setup,
       started: countdown == 0,
@@ -30,6 +32,13 @@ defmodule Badge.App.Goatwars.Page do
 
   @impl true
   def handle_key(event, %{screen: :settings} = state), do: settings_key(event, state)
+
+  def handle_key({:char, ?t}, state),
+    do: {:ok, %{state | benchmark: not Map.fetch!(state, :benchmark), bench_previous: nil}}
+
+  def handle_key({:char, ?m}, %{benchmark: true} = state),
+    do: {:ok, restart(%{state | compact: not Map.fetch!(state, :compact), bench_previous: nil, scores: %{}, round: 0})}
+
   def handle_key({:char, ?s}, state), do: {:ok, %{state | screen: :settings, draft: Map.fetch!(state, :setup)}}
 
   def handle_key({:char, 32}, state),
@@ -93,6 +102,22 @@ defmodule Badge.App.Goatwars.Page do
   defp settings_key(_, _), do: :ignore
 
   @impl true
+  def tick(%{benchmark: true} = state) do
+    started = :erlang.monotonic_time(:microsecond)
+    next = advance(state, :erlang.monotonic_time(:millisecond))
+    elapsed = :erlang.monotonic_time(:microsecond) - started
+    previous = Map.fetch!(state, :bench_previous)
+
+    if previous != nil and checkpoint?(next) do
+      :io.format(
+        ~c"GW_DEVICE mode=~s tick=~p phase=tick cpu_us=~p frame_gap_us=~p~n",
+        [mode(next), round_tick(next), elapsed, started - previous]
+      )
+    end
+
+    %{next | bench_previous: started}
+  end
+
   def tick(state), do: advance(state, :erlang.monotonic_time(:millisecond))
   @impl true
   def refresh(_state), do: 100
@@ -160,6 +185,7 @@ defmodule Badge.App.Goatwars.Page do
 
     seed = Map.fetch!(state, :round) + 1
     match = Match.demo(config, seed, controllers(Map.fetch!(state, :setup), seed), record_replay: false)
+    match = if Map.fetch!(state, :compact), do: %{match | game: Game.compact(Map.fetch!(match, :game))}, else: match
 
     %{
       state
@@ -188,7 +214,39 @@ defmodule Badge.App.Goatwars.Page do
   @impl true
   def render(%{screen: :settings} = state), do: render_settings(state)
 
-  def render(state) do
+  def render(%{benchmark: true} = state) do
+    started = :erlang.monotonic_time(:microsecond)
+    items = render_game(state)
+    elapsed = :erlang.monotonic_time(:microsecond) - started
+
+    if checkpoint?(state) do
+      :io.format(
+        ~c"GW_DEVICE mode=~s tick=~p phase=render cpu_us=~p heap=~p queue=~p~n",
+        [
+          mode(state),
+          round_tick(state),
+          elapsed,
+          :erlang.process_info(self(), :heap_size),
+          :erlang.process_info(self(), :message_queue_len)
+        ]
+      )
+    end
+
+    items
+  end
+
+  def render(state), do: render_game(state)
+
+  defp mode(%{compact: true}), do: ~c"bitmap"
+  defp mode(_), do: ~c"legacy"
+  defp round_tick(state), do: Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :tick)
+
+  defp checkpoint?(state) do
+    tick = round_tick(state)
+    Map.fetch!(state, :started) and (tick == 97 or (tick > 0 and rem(tick, 10) == 0))
+  end
+
+  defp render_game(state) do
     overlay(state) ++
       Render.explosions(Map.fetch!(state, :effects), Map.fetch!(state, :layout), Map.fetch!(Map.fetch!(state, :match), :game)) ++
       hud(state) ++
