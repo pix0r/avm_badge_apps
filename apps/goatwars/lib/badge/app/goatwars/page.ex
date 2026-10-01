@@ -11,13 +11,14 @@ defmodule Badge.App.Goatwars.Page do
   @impl true
   def init(options \\ []) do
     rules =
-      Keyword.get(options, :rules, %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8})
+      Keyword.get(options, :rules, %{width: 24, height: 14, explosion_radius: 2, retract_speed: 8})
 
     setup = Setup.new(Keyword.get(options, :profiles, %{}))
     seed = Keyword.get(options, :seed, 1)
     match = Match.demo(rules, seed, controllers(setup, seed), record_replay: false)
     match = if Keyword.get(options, :compact, true), do: %{match | game: Game.compact(Map.fetch!(match, :game))}, else: match
-    setup = %{setup | retract: Map.fetch!(Map.fetch!(Map.fetch!(match, :game), :config), :retract_speed) > 0}
+    config = Map.fetch!(Map.fetch!(match, :game), :config)
+    setup = %{setup | retract: Map.fetch!(config, :retract_speed) > 0, board: {Map.fetch!(config, :width), Map.fetch!(config, :height)}}
     countdown = Keyword.get(options, :countdown_ms, 3000)
 
     State.new(%{
@@ -88,6 +89,9 @@ defmodule Badge.App.Goatwars.Page do
   defp settings_key({:char, ?r}, state),
     do: {:ok, %{state | draft: %{Map.fetch!(state, :draft) | retract: not Map.fetch!(Map.fetch!(state, :draft), :retract)}}}
 
+  defp settings_key({:char, ?g}, %{draft: %{board: board} = draft} = state),
+    do: {:ok, %{state | draft: %{draft | board: if(board == {78, 46}, do: {24, 14}, else: {78, 46})}}}
+
   defp settings_key({:char, ?s}, state),
     do: {:ok, %{state | screen: :game, draft: nil, launch_at: nil, due_at: nil}}
 
@@ -138,7 +142,7 @@ defmodule Badge.App.Goatwars.Page do
       restart(state)
     else
       match = %{Map.fetch!(state, :match) | game: Game.cleanup(Map.fetch!(Map.fetch!(state, :match), :game))}
-      animate(%{state | match: match})
+      %{state | match: match, effects: age_effects(Map.fetch!(state, :effects)), frame: Map.fetch!(state, :frame) + 1}
     end
   end
 
@@ -148,31 +152,58 @@ defmodule Badge.App.Goatwars.Page do
     match = Match.tick(Map.fetch!(state, :match))
 
     scores =
-      Enum.reduce(Map.fetch!(match, :totals), Map.fetch!(state, :scores), fn {id, score}, scores ->
-        gain = score - Map.get(Map.fetch!(Map.fetch!(state, :match), :totals), id, 0)
-        Map.put(scores, id, Map.get(scores, id, 0) + gain)
-      end)
+      add_scores(:maps.to_list(Map.fetch!(match, :totals)), Map.fetch!(Map.fetch!(state, :match), :totals), Map.fetch!(state, :scores))
 
-    state =
-      animate(%{state | scores: scores, match: match, due_at: now + Map.fetch!(Map.fetch!(Map.fetch!(match, :game), :config), :step_ms)})
+    effects = crash_effects(Map.fetch!(match, :events), age_effects(Map.fetch!(state, :effects)))
+    game = Map.fetch!(match, :game)
 
-    effects =
-      for {:crashed, id, position} <- Map.fetch!(match, :events),
-          do: Render.Explosion.new(id, position)
-
-    state = %{state | effects: effects ++ Map.fetch!(state, :effects)}
-    if Map.fetch!(Map.fetch!(match, :game), :status) == :running, do: state, else: %{state | result_until: now + 2000}
+    %{
+      state
+      | scores: scores,
+        match: match,
+        due_at: now + Map.fetch!(Map.fetch!(game, :config), :step_ms),
+        effects: effects,
+        frame: Map.fetch!(state, :frame) + 1,
+        result_until: if(Map.fetch!(game, :status) == :running, do: nil, else: now + 2000)
+    }
   end
 
-  defp animate(state) do
-    effects = for effect <- Map.fetch!(state, :effects), Map.fetch!(effect, :age) < 5, do: %{effect | age: Map.fetch!(effect, :age) + 1}
-    %{state | effects: effects, frame: Map.fetch!(state, :frame) + 1}
+  defp crash_effects([], effects), do: effects
+
+  defp crash_effects([{:crashed, id, position} | rest], effects),
+    do: [Render.Explosion.new(id, position) | crash_effects(rest, effects)]
+
+  defp crash_effects([_ | rest], effects), do: crash_effects(rest, effects)
+
+  defp add_scores([], _previous, scores), do: scores
+
+  defp add_scores([{id, total} | rest], previous, scores) do
+    gain = total - score(previous, id)
+    scores = if gain == 0, do: scores, else: Map.put(scores, id, score(scores, id) + gain)
+    add_scores(rest, previous, scores)
   end
 
-  defp restart(state) do
+  defp age_effects([]), do: []
+
+  defp age_effects([%{age: age} = effect | rest]) when age < 5,
+    do: [%{effect | age: age + 1} | age_effects(rest)]
+
+  defp age_effects([_ | rest]), do: age_effects(rest)
+
+  defp restart(%{setup: %{board: {width, height}}} = state) do
+    previous = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :config)
+
+    shrink_after =
+      if {width, height} == {Map.fetch!(previous, :width), Map.fetch!(previous, :height)},
+        do: Map.fetch!(previous, :shrink_after),
+        else: 2 * (width + height) - 4
+
     config = %{
       Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :config)
-      | retract_speed:
+      | width: width,
+        height: height,
+        shrink_after: shrink_after,
+        retract_speed:
           if(Map.fetch!(Map.fetch!(state, :setup), :retract),
             do:
               if(Map.fetch!(Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :config), :retract_speed) > 0,
@@ -190,6 +221,7 @@ defmodule Badge.App.Goatwars.Page do
     %{
       state
       | match: match,
+        layout: Render.layout(Map.fetch!(Map.fetch!(match, :game), :config)),
         round: Map.fetch!(state, :round) + 1,
         result_until: nil,
         due_at: nil,
@@ -255,34 +287,47 @@ defmodule Badge.App.Goatwars.Page do
   defp cannons(%{started: false} = state), do: Render.cannons(Map.fetch!(Map.fetch!(state, :match), :game), Map.fetch!(state, :layout))
   defp cannons(_), do: []
 
-  defp hud(state) do
-    game = Map.fetch!(Map.fetch!(state, :match), :game)
+  defp hud(%{
+         match: %{game: %{arena: %{next_shrink_tick: deadline}, tick: tick}, scores: scores, bonus: bonus},
+         scores: totals,
+         effects: effects
+       }) do
+    energy = if deadline == nil, do: 0, else: max(deadline - tick, 0)
 
-    scores =
-      Enum.flat_map(1..4, fn id ->
-        x = 4 + (id - 1) * 43
+    tail = [
+      {:text, 180, 210, :default16px, 0xFFFFFF, 0x000020, "Energy"},
+      {:text, 180, 224, :default16px, 0xFFFFFF, 0x000020, int(energy)},
+      {:text, 256, 210, :default16px, 0xFFFFFF, 0x000020, "Bonus"},
+      {:text, 256, 224, :default16px, 0xFFFFFF, 0x000020, int(bonus)},
+      {:rect, 0, 209, 320, 31, 0x000020}
+    ]
 
-        label =
-          if :lists.any(fn effect -> Map.fetch!(effect, :id) == id end, Map.fetch!(state, :effects)),
-            do: "BAA!",
-            else: short(Map.get(Map.fetch!(Map.fetch!(state, :match), :scores), id, 0))
-
-        text(x, 210, label, 0xFFFFFF) ++
-          text(x, 224, short(Map.get(Map.fetch!(state, :scores), id, 0)), 0xFFFFFF) ++
-          [{:rect, x, 209, 36, 1, Render.color(id)}]
-      end)
-
-    energy =
-      case Map.fetch!(Map.fetch!(game, :arena), :next_shrink_tick) do
-        nil -> 0
-        deadline -> max(deadline - Map.fetch!(game, :tick), 0)
-      end
-
-    scores ++
-      text(180, 210, "Energy", 0xFFFFFF) ++
-      text(180, 224, int(energy), 0xFFFFFF) ++
-      text(256, 210, "Bonus", 0xFFFFFF) ++ text(256, 224, int(Map.fetch!(Map.fetch!(state, :match), :bonus)), 0xFFFFFF)
+    hud_scores(1, 4, scores, totals, effects, tail)
   end
+
+  defp hud_scores(5, _x, _scores, _totals, _effects, tail), do: tail
+
+  defp hud_scores(id, x, scores, totals, effects, tail) do
+    label = if knocked_out?(effects, id), do: "BAA!", else: short(score(scores, id))
+
+    [
+      {:text, x, 210, :default16px, 0xFFFFFF, 0x000020, label},
+      {:text, x, 224, :default16px, 0xFFFFFF, 0x000020, short(score(totals, id))},
+      {:rect, x, 209, 36, 1, Render.color(id)}
+      | hud_scores(id + 1, x + 43, scores, totals, effects, tail)
+    ]
+  end
+
+  defp score(scores, id) do
+    case scores do
+      %{^id => value} -> value
+      _ -> 0
+    end
+  end
+
+  defp knocked_out?([], _id), do: false
+  defp knocked_out?([%{id: id} | _], id), do: true
+  defp knocked_out?([_ | rest], id), do: knocked_out?(rest, id)
 
   defp overlay(%{paused: true}), do: panel("PAUSED", "Space to resume", 0xFFFFFF)
 
@@ -297,9 +342,11 @@ defmodule Badge.App.Goatwars.Page do
   defp overlay(_), do: []
 
   defp panel(title, hint, color) do
-    text(div(320 - byte_size(title) * 8, 2), 100, title, color) ++
-      text(div(320 - byte_size(hint) * 8, 2), 121, hint, 0xFFFFFF) ++
-      [{:rect, 64, 91, 192, 54, 0x000020}]
+    [
+      {:text, div(320 - byte_size(title) * 8, 2), 100, :default16px, color, 0x000020, title},
+      {:text, div(320 - byte_size(hint) * 8, 2), 121, :default16px, 0xFFFFFF, 0x000020, hint},
+      {:rect, 64, 91, 192, 54, 0x000020}
+    ]
   end
 
   defp render_settings(state) do
@@ -310,17 +357,20 @@ defmodule Badge.App.Goatwars.Page do
         slot = Map.fetch!(setup, :slots)[id]
         marker = if id == Map.fetch!(state, :selected), do: ">", else: " "
 
-        text(8, 57 + (id - 1) * 27, marker <> "P" <> int(id), 0xFFFFFF) ++
-          text(48, 57 + (id - 1) * 27, mode_label(Map.fetch!(slot, :mode)), 0xFFFFFF) ++
-          text(268, 57 + (id - 1) * 27, Setup.key_label(Map.fetch!(slot, :keys)), 0xFFFFFF) ++
-          [{:rect, 8, 55 + (id - 1) * 27, 32, 20, Render.color(id)}]
+        text(8, 57 + (id - 1) * 24, marker <> "P" <> int(id), 0xFFFFFF) ++
+          text(48, 57 + (id - 1) * 24, mode_label(Map.fetch!(slot, :mode)), 0xFFFFFF) ++
+          text(268, 57 + (id - 1) * 24, Setup.key_label(Map.fetch!(slot, :keys)), 0xFFFFFF) ++
+          [{:rect, 8, 55 + (id - 1) * 24, 32, 20, Render.color(id)}]
       end)
 
     hint = if Setup.valid?(setup), do: "Enter: start  S: cancel", else: "Need 2 active players"
 
+    {width, height} = Map.fetch!(setup, :board)
+
     text(8, 29, "PLAYER SETTINGS", 0xFFFFFF) ++
       rows ++
-      text(8, 168, "R: Retract " <> if(Map.fetch!(setup, :retract), do: "ON", else: "OFF"), 0xFFFFFF) ++
+      text(8, 156, "R: Retract " <> if(Map.fetch!(setup, :retract), do: "ON", else: "OFF"), 0xFFFFFF) ++
+      text(8, 174, "G: Board " <> int(width) <> "x" <> int(height), 0xFFFFFF) ++
       text(8, 192, "Arrows: mode  C: keys", 0xA4B8C9) ++
       text(8, 217, hint, 0xFFFFFF) ++
       [{:rect, 0, 24, 320, 216, 0x000020}]

@@ -82,31 +82,15 @@ defmodule Badge.App.Goatwars.Match do
   @spec tick(t()) :: t()
   def tick(%{game: %{status: status}} = match) when status != :running, do: match
 
-  def tick(match) do
-    {turns, controllers} =
-      Enum.reduce(Game.living(Map.fetch!(match, :game)), {%{}, Map.fetch!(match, :controllers)}, fn player, acc ->
-        choose(match, Map.fetch!(player, :id), acc)
-      end)
-
-    {:ok, game, events} = Game.step(Map.fetch!(match, :game), turns)
-
-    scores =
-      Enum.reduce(Game.living(game), Map.fetch!(match, :scores), fn player, scores ->
-        Map.put(
-          scores,
-          Map.fetch!(player, :id),
-          Map.get(scores, Map.fetch!(player, :id), 0) + Map.fetch!(Map.fetch!(game, :config), :points_per_tick)
-        )
-      end)
-
-    bonus =
-      max(
-        Map.fetch!(Map.fetch!(game, :config), :bonus_start) - Map.fetch!(game, :tick) * Map.fetch!(Map.fetch!(game, :config), :bonus_decay),
-        0
-      )
+  def tick(%{game: game, controllers: controllers, pending: pending, scores: scores, replay: replay, record_replay: record} = match) do
+    {turns, controllers} = choose_all(Game.living(game), game, pending, controllers, %{})
+    {:ok, game, events} = Game.step(game, turns)
+    %{players: players, config: %{points_per_tick: points, bonus_start: start, bonus_decay: decay}, tick: tick, status: status} = game
+    scores = score_players(:maps.to_list(players), scores, points)
+    bonus = max(start - tick * decay, 0)
 
     awarded_bonus =
-      case Map.fetch!(game, :status) do
+      case status do
         {:winner, id} -> {id, bonus}
         _ -> nil
       end
@@ -127,9 +111,34 @@ defmodule Badge.App.Goatwars.Match do
         controllers: controllers,
         pending: %{},
         events: events,
-        replay: if(Map.fetch!(match, :record_replay), do: [turns | Map.fetch!(match, :replay)], else: [])
+        replay: if(record, do: [turns | replay], else: [])
     }
   end
+
+  defp choose_all([], _game, _pending, controllers, turns), do: {turns, controllers}
+
+  defp choose_all([%{id: id} | rest], game, pending, controllers, turns) do
+    {turn, controllers} =
+      case Map.fetch!(controllers, id) do
+        :human ->
+          {Map.get(pending, id), controllers}
+
+        {module, memory} ->
+          {turn, next_memory} = module.choose(game, id, memory)
+          controllers = if next_memory === memory, do: controllers, else: Map.put(controllers, id, {module, next_memory})
+          {turn, controllers}
+      end
+
+    turns = if turn == nil, do: turns, else: Map.put(turns, id, turn)
+    choose_all(rest, game, pending, controllers, turns)
+  end
+
+  defp score_players([], scores, _points), do: scores
+
+  defp score_players([{id, %{alive: true}} | rest], scores, points),
+    do: score_players(rest, Map.put(scores, id, Map.get(scores, id, 0) + points), points)
+
+  defp score_players([_ | rest], scores, points), do: score_players(rest, scores, points)
 
   @spec run(t(), non_neg_integer()) :: t()
   def run(match, ticks) when is_integer(ticks) and ticks >= 0, do: run_ticks(match, ticks)
@@ -139,19 +148,4 @@ defmodule Badge.App.Goatwars.Match do
     do: match
 
   defp run_ticks(match, ticks), do: run_ticks(tick(match), ticks - 1)
-
-  defp choose(match, id, {turns, controllers}) do
-    {turn, controller} =
-      case Map.fetch!(controllers, id) do
-        :human ->
-          {Map.get(Map.fetch!(match, :pending), id), :human}
-
-        {module, memory} ->
-          {turn, memory} = module.choose(Map.fetch!(match, :game), id, memory)
-          {turn, {module, memory}}
-      end
-
-    turns = if turn == nil, do: turns, else: Map.put(turns, id, turn)
-    {turns, Map.put(controllers, id, controller)}
-  end
 end

@@ -62,9 +62,11 @@ manifest are not changed by building these images.
 ## First physical test
 
 1. Wait for Home. Press Right twice to reach home screen three, then press the
-   square key for GoatWars. A three-second countdown should lead into a match.
+   square key for GoatWars. A three-second countdown should lead into a match
+   on the new 24×14 board with large 13-pixel cells.
 2. Use Left/Right to take over player one. Space pauses and resumes. `S` opens
-   player settings, arrows change selections, and Enter applies them.
+   player settings, arrows change selections, and Enter applies them. G toggles
+   the board size; S, G, Enter selects the original 78×46 board for comparison.
 3. Press `R` to rematch. Return Home using the normal navigation key, then reopen
    GoatWars and confirm the game starts fresh.
 4. Restart the badge and reopen GoatWars without Wi-Fi; this USB build should
@@ -72,8 +74,9 @@ manifest are not changed by building these images.
 5. Record any reboot, return to Home, missing text, sluggish input or visual
    corruption. Include what you pressed and how long it had been running.
 
-Physical results are pending. We stopped before flashing or running device tests
-at your request. Host/native readiness evidence is in
+The previous physical builds were reported as laggy. This latest build was
+prepared without accessing the badge; its physical results remain pending.
+Host/native readiness evidence is in
 [the readiness report](goatwars-readiness.md). Store HTTPS remains a separate
 known firmware risk; this offline test does not establish its reliability.
 
@@ -87,7 +90,8 @@ controller; its settings offer Human, AI Simple and Inactive.
 
 ## Performance diagnostics
 
-The new default uses a full-size bitmap board and a ticker with backpressure.
+Version 0.1.1 defaults to a 24×14 bitmap board and a ticker with backpressure.
+Rematches preserve the board choice; leaving and reopening restores the default.
 Press T in the game for timing logs; M then restarts the same seed in legacy or
 bitmap mode. The [performance guide](goatwars-performance.md) explains the local
 benchmarks, physical checks and what the measurements cover.

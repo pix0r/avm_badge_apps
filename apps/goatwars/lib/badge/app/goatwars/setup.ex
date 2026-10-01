@@ -12,7 +12,7 @@ defmodule Badge.App.Goatwars.Setup do
       end)
       |> Map.new()
 
-    %{slots: slots, retract: true}
+    %{slots: slots, retract: true, board: {24, 14}}
   end
 
   def controllers(setup),

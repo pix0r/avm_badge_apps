@@ -22,15 +22,16 @@ known unresolved hardware risk.
 
 | Gate | Result |
 | --- | --- |
-| Apps host suite | 146 tests, zero failures |
+| Apps host suite | 153 tests, zero failures; 11 Python checks pass |
 | Selected firmware suite | 1,408 tests, zero failures; two asset-regeneration tests excluded |
 | Native badge-v1 execution | 20 seeded matches plus countdown, pause, settings, restart and render assertions pass |
 | Exact VM compatibility | All imports and 59 instruction types in 19 game modules resolve against pinned VM sources/libraries |
 | Actual released boot library | Real app pack loads dynamically; imported library exports and page lifecycle pass on native AtomVM with released boot.avm |
-| Store packaging | About 54 KB, under the 65,536-byte limit; native pack and host pack tests pass |
+| Store packaging | 53,736 bytes, under the 65,536-byte limit; native pack and host pack tests pass |
 | Store authentication | Disposable-key signed pack verifies; tampering is rejected; no production key or publishing used |
 | Real firmware UI | Four integration scenarios pass, including ticker backpressure: empty NVS launch/key routing, retained installation with offline reload failure, crashed game recovery to Home |
-| Resource stress | Four presets, a dense board, 25 entries and 100 rounds pass at 4,096/8,192/16,384 words; 32 retained frames pass at 32,768 words; binary memory is checked separately |
+| Resource stress | Both board sizes, exact tick-97 state, dense board, 25 entries and 600 total rounds pass at 4,096/8,192/16,384 words; 32 retained frames in either size pass at 32,768 words; binary memory is checked separately |
+| Actual USB game delivery | Rebuilt main/assets packs load together on native AtomVM; default round ends at tick 91 and original full-size round at 207 |
 | Simulator | Built-in splash/home/reboot check passes; game interaction covered separately through real UI |
 | First installation commands | Fake-flasher tests cover base image offsets/checksum refusal, modern/legacy/Python esptool discovery and error propagation |
 | Partition capacity | Released VM/boot plus built assets/main fit all source and released binary partitions |
@@ -57,10 +58,11 @@ game audit and actual released-library execution provide independent evidence.
 
 Native runtime is the exact `badge-v1` source
 `a08e9fc1e20131e0d2b1432691ea198020bce0ff`, built in Release mode on macOS ARM64.
-It uses 8-byte words; the ESP32 uses 4-byte words. Heap sweeps use 32,768,
-65,536 and 131,072 words per process. These are stress boundaries, not measured
-ESP32 capacity. The dense 3,588-cell fixture emits 3,629 display items and requires
-the highest tested heap cap. Unexpected failures at any cap fail the runner.
+It uses 8-byte words; the ESP32 uses 4-byte words. Current heap sweeps use 4,096,
+8,192 and 16,384 words per process; retained-frame tests use 32,768 words.
+These are stress boundaries, not measured ESP32 capacity. Current dense bitmap
+rendering emits 26 items; the earlier map-rendering fixture emitted 3,629.
+Unexpected failures at any cap fail the runner.
 
 Desktop timing does not prove the badge's 100 ms frame deadline. Physical display
 queue drain, SPI/rotation/base-image configuration, internal RAM under Wi-Fi and
@@ -73,7 +75,7 @@ it does not exercise an actual HTTPS transfer or physical flash wear/power loss.
 ## Artifact identity and first-device installation
 
 Game pack SHA-256:
-`6a15d099968db5b37bd8ec24e2bf1e9ad5fd02adf8aa7d533c50062f68659f28`.
+`f0d11e08dfac41c9bc2c135f84fa4b4f1e4c2062e5d879c295abe30578425d78`.
 Released boot.avm is 524,880 bytes, SHA-256
 `652d98edf174ea7ec650b9e573a4cb479fbf99fc7d017cddfdebe4fd97f2adbf`.
 Release checksums verify and its seven partition rows match source exactly.
@@ -82,8 +84,8 @@ Release checksums verify and its seven partition rows match source exactly.
 | --- | ---: | ---: | ---: |
 | factory VM | 1,742,512 | 1,966,080 | 223,568 |
 | boot | 524,880 | 557,056 | 32,176 |
-| assets | 210,260 | 262,144 | 51,884 |
-| main firmware | 660,956 | 671,744 | 10,788 |
+| USB assets with game modules | 259,672 | 262,144 | 2,472 |
+| USB main firmware | 665,480 | 671,744 | 6,264 |
 
 A blank device needs the pinned base image (including boot.avm and matching
 partition table), assets, and this Store firmware before installing the app.
@@ -113,8 +115,9 @@ For native execution, build AtomVM and atomvmlib from the pinned source, then ru
 The runner checks source and boot identities, audits compiled code, loads the
 actual app pack and runs lifecycle/match/resource checks. It fails on unexpected
 errors. Generated VM builds, packs, disposable keys and logs stay outside the repo.
-This session's evidence is in `/private/tmp/goatwars-readiness`; temporary artifacts
-should be regenerated if that directory is cleaned.
+Earlier evidence is in `/private/tmp/goatwars-readiness`; current performance and
+USB evidence is under `/private/tmp/beamwars-readiness/goatwars-coarse-verified-*`.
+Temporary artifacts should be regenerated if those directories are cleaned.
 
 ## Physical acceptance still required
 
@@ -158,3 +161,13 @@ modules between main and assets while preserving every existing asset.
 All work remains in the isolated paired worktrees; the badge was untouched.
 See [performance verification](goatwars-performance.md) for commands, limits and
 T/M device timing controls.
+
+## October 1 smaller-board follow-up
+
+Further loop and text-rendering optimization measures another 1.79× combined
+native CPU gain against `50696f1`, below the requested 5×. The authorized fallback
+defaults to 24×14 cells, drawn at 13 pixels each. Its bitmap and retained-frame
+binary samples are over 10× smaller. Settings G toggles the original 78×46 board;
+both modes retain 100 ms steps and pass the final native memory/USB gates.
+All final checks and image rebuilding were hardware-free. The new physical
+speedup remains unmeasured.

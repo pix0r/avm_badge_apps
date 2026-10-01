@@ -1,11 +1,13 @@
 defmodule GoatwarsResources do
   alias Badge.App.Goatwars.{Page, Render}
+  @coarse %{width: 24, height: 14, explosion_radius: 2, retract_speed: 8}
+  @full %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8}
 
   def start do
     :io.format(~c"Word size: ~p bytes~n", [:erlang.system_info(:wordsize)])
-    fixtures = [:beginner, :intermediate, :expert, :pro, :dense, :lifecycle, :soak]
+    fixtures = [:beginner, :intermediate, :expert, :pro, :fullsize, :reported_state, :dense, :lifecycle, :soak, :full_soak]
     results = for fixture <- fixtures, limit <- [4096, 8192, 16384], do: run(fixture, limit)
-    results = [run(:queue, 32768) | results]
+    results = [run(:queue, 32768), run(:full_queue, 32768) | results]
     true = accepted?(results)
     :io.format(~c"Resource fixtures passed at 4096, 8192 and 16384 words~n")
     :ok
@@ -55,13 +57,15 @@ defmodule GoatwarsResources do
   def fixture(:dense) do
     state = Page.init(countdown_ms: 0)
 
+    %{width: width, height: height} = state.match.game.config
+
     rows =
-      for y <- 0..45 do
-        pixels = for x <- 0..77, do: <<Render.color(rem(x + y, 4) + 1)::24, 255>>
+      for y <- 0..(height - 1) do
+        pixels = for x <- 0..(width - 1), do: <<Render.color(rem(x + y, 4) + 1)::24, 255>>
         :erlang.list_to_binary(pixels)
       end
 
-    game = %{state.match.game | occupied: {78, 46, :erlang.list_to_binary(rows)}}
+    game = %{state.match.game | occupied: {width, height, :erlang.list_to_binary(rows)}}
 
     state = %{state | match: %{state.match | game: game}}
     items = Page.render(state)
@@ -72,8 +76,8 @@ defmodule GoatwarsResources do
         {:rect, x, y, w, h, _} ->
           x >= 0 and y >= 0 and w > 0 and h > 0 and x + w <= 320 and y + h <= 240
 
-        {:text, x, y, :default16px, _, :transparent, label} ->
-          x >= 0 and y >= 0 and is_binary(label)
+        {:text, x, y, :default16px, _, background, label} ->
+          x >= 0 and y >= 0 and is_binary(label) and (background == :transparent or background == 0x000020)
 
         {:scaled_cropped_image, x, y, w, h, _, _, _, _, _, [], {:rgba8888, iw, ih, bytes}} ->
           x >= 0 and y >= 0 and x + w <= 320 and y + h <= 240 and byte_size(bytes) == iw * ih * 4
@@ -83,8 +87,22 @@ defmodule GoatwarsResources do
   end
 
   def fixture(:lifecycle), do: lifecycle(25)
-  def fixture(:soak), do: soak(100, 0, 0)
+  def fixture(:soak), do: soak(100, 0, 0, @coarse)
+  def fixture(:full_soak), do: soak(100, 0, 0, @full)
   def fixture(:queue), do: queued(Page.init(countdown_ms: 0), 0, [], 0)
+  def fixture(:full_queue), do: queued(Page.init(countdown_ms: 0, rules: @full), 0, [], 0)
+  def fixture(:fullsize), do: play(Page.init(countdown_ms: 0, rules: @full), 0, 0, 0, 0)
+
+  def fixture(:reported_state) do
+    state = Enum.reduce(:lists.seq(0, 96), Page.init(countdown_ms: 0, rules: @full), fn tick, state -> Page.advance(state, tick * 100) end)
+    2425 = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :scores), 1)
+    2425 = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :scores), 4)
+    game = Map.fetch!(Map.fetch!(state, :match), :game)
+    147 = Map.fetch!(Map.fetch!(game, :arena), :next_shrink_tick) - Map.fetch!(game, :tick)
+    true = length(Page.render(state)) > 0
+    98 = Map.fetch!(Map.fetch!(Map.fetch!(Page.advance(state, 9700), :match), :game), :tick)
+    :ok
+  end
 
   def fixture(level) do
     state =
@@ -109,12 +127,12 @@ defmodule GoatwarsResources do
     end
   end
 
-  defp soak(0, max_state, max_binary), do: {100, max_state, max_binary, :erlang.memory(:binary)}
+  defp soak(0, max_state, max_binary, _rules), do: {100, max_state, max_binary, :erlang.memory(:binary)}
 
-  defp soak(n, max_state, max_binary) do
-    {_, _, words, _, bytes} = play(Page.init(countdown_ms: 0, seed: n), 0, 0, 0, 0)
+  defp soak(n, max_state, max_binary, rules) do
+    {_, _, words, _, bytes} = play(Page.init(countdown_ms: 0, seed: n, rules: rules), 0, 0, 0, 0)
     true = words < 800
-    soak(n - 1, max(max_state, words), max(max_binary, bytes))
+    soak(n - 1, max(max_state, words), max(max_binary, bytes), rules)
   end
 
   defp queued(state, now, queue, max_binary) do
@@ -138,6 +156,7 @@ defmodule GoatwarsResources do
     {:ok, state} = Page.handle_key({:move, :left}, state)
     {:ok, state} = Page.handle_key({:char, ?s}, state)
     {:ok, state} = Page.handle_key({:char, ?c}, state)
+    {:ok, state} = Page.handle_key({:char, ?g}, state)
     {:ok, state} = Page.handle_key({:edit, :newline}, state)
     true = length(Page.render(state)) > 0
     :ok = Page.leave(state)

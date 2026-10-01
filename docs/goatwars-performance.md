@@ -1,13 +1,63 @@
 # GoatWars performance verification
 
-The October 1 build keeps the 78×46 board and its movement, scoring,
-explosion and contraction rules. Badge occupancy is a fixed 14,352-byte RGBA
-bitmap; paths are packed coordinate binaries. Rendering submits one scaled
-board image. The board background is solid; the former grid lines are omitted.
+The latest October 1 build defaults to a 24×14 board with 13-pixel cells and a
+fixed 1,344-byte RGBA bitmap. The original 78×46 board remains selectable: press
+S, G, then Enter. Paths are packed coordinate binaries. Rendering submits one
+scaled board image. The board background is solid; the former grid lines are omitted.
 Headless matches still use maps. The firmware ticker waits for a completed UI
 callback before requesting another frame, preventing a backlog ahead of keys.
 
-## Recorded baseline and results
+## Further optimization and smaller-board fallback
+
+The new request was another 5× CPU improvement or a lower-resolution board.
+Against the committed knockout fix `50696f1`, optimization reached 1.79× for
+native gameplay, rendering and C raster combined. The 5× performance gate
+correctly fails. The delivered default therefore uses the requested smaller
+board; this is not a claim of another 5× CPU improvement.
+
+Both versions run the same five full-size rounds, 1,035 ticks, and all 207 C
+raster frames on the pinned tools below. Shorter small-board matches do not
+count toward the CPU comparison.
+
+| Work | `50696f1` | Latest build | Improvement |
+| --- | ---: | ---: | ---: |
+| Five full-size rounds: advance + render | 368,599 µs | 240,613 µs | 1.53× |
+| Mean C raster per full-size frame | 219.5 µs | 88.5 µs | 2.48× |
+| Mean combined CPU per full-size frame | 575.7 µs | 320.9 µs | 1.79× |
+| Board bitmap bytes | 14,352 | 1,344 | 10.68× smaller |
+| Peak sampled binary bytes with 32 retained frames | 475,276 | 45,084 | 10.54× smaller |
+
+Gameplay uses fewer intermediate maps and traversals; unchanged controller
+memory and empty trail cleanup reuse their state. Opaque score and overlay text
+avoid the driver's search through underlying drawing items at blank glyph pixels.
+The native driver pixel tests cover both opaque text and scaled bitmap colors.
+
+The smaller board retains the 100 ms step and uses 13-pixel cells rather than
+4-pixel cells. Movement covers 3.25× more screen distance per tick. At the same
+four-goat tick-4 state, native advance/render takes 282 µs at either resolution;
+C raster takes 92.2 µs for 24×14 and 90.3 µs for 78×46. Lower resolution primarily
+reduces bitmap copying and memory, not full-screen raster work. Physical speed
+and responsiveness still need the user's device test.
+
+Settings show `G: Board 24x14` or `78x46`; Enter applies the choice and recomputes
+layout and the initial fence deadline. Rematches retain it; S cancels changes.
+Reopening the page restores 24×14. The first default round ends at tick 91;
+the original full-size round still ends at 207, including the exact tick-97
+scores/energy regression.
+
+153 host tests, 11 Python tests, four real firmware UI integration scenarios,
+the strict 19-module/59-instruction AtomVM audit, Store loading, and the actual
+split USB packs pass. Native stress runs 100 rounds in each board size at each
+of three heap caps: 600 complete rounds. Peak sampled binary usage during
+coarse rounds is 2,156 bytes versus 16,628 for full-size rounds. Samples are at
+frame boundaries, not transient allocation high-water marks or total badge RAM.
+Both modes also pass with 32 rendered frames retained.
+
+Final evidence is under
+`/private/tmp/beamwars-readiness/goatwars-coarse-verified-benchmark` and
+`/private/tmp/beamwars-readiness/goatwars-coarse-verified-native`.
+
+## Earlier full-size baseline and results
 
 Baseline is `a1e6f4b`, the SimpleBot build Mike reported was still too slow.
 Both versions use the same benchmark, badge-v1 VM
@@ -33,12 +83,12 @@ crash recovery and that a stalled UI queues at most one rendering tick.
 
 ## Memory and the reported crash point
 
-The first match is deterministic: tick 97 has blue/yellow scores 2,425 and
+The first full-size match is deterministic: tick 97 has blue/yellow scores 2,425 and
 energy 147. The exact state renders and advances past that point on native
 AtomVM. No matching native crash was observed.
 
 Four badge presets, a fully filled board, repeated entry/settings/exit, and
-100 complete rounds pass at each of 4,096, 8,192 and 16,384 heap words, without
+100 complete rounds in each size pass at each of 4,096, 8,192 and 16,384 heap words, without
 an allowed OOM exception. Native words are eight bytes; badge words are four.
 The resource runner samples `erlang:memory(binary)` separately because heap
 limits and `flat_size` exclude off-heap binary payloads. Repeated-round peak sampled
@@ -100,9 +150,18 @@ The first script archives the baseline from Git into the result directory,
 compiles both versions and runs the same harness. The comparison rejects
 incomplete results, different word sizes or different workloads, and fails
 below 10×. The second script compiles the exact driver's scanline functions,
-checks crop/scaling/RGBA colors against literal RGB565 pixels, and includes
+checks crop/scaling/RGBA colors and opaque text against literal RGB565 pixels, and includes
 raster CPU in the same 10× gate. Retain `baseline/results.log`,
 `current/results.log` and both `raster.log` files as evidence.
+
+To repeat the latest follow-up comparison instead, set these before the two
+benchmark commands. Its 5× gate fails, as documented above; the smaller-board
+fallback is validated by the resource and packaging checks.
+
+```sh
+export GOATWARS_BASELINE_REF=50696f1
+export GOATWARS_MIN_SPEEDUP=5
+```
 
 For compatibility, memory stress and the actual USB image split:
 
@@ -115,7 +174,8 @@ mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- ./scripts/goatwars_native.sh
 
 The last command checks imports/instructions against the VM, loads the Store
 pack with the released boot library, runs the memory fixtures, then loads
-both actual USB packs and plays through tick 97 to the terminal tick 207.
+both actual USB packs and plays both the default round to tick 91 and the
+full-size round through tick 97 to terminal tick 207.
 
 ## Device measurements later
 

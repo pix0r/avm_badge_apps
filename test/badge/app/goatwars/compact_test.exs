@@ -65,7 +65,13 @@ defmodule Badge.App.Goatwars.CompactTest do
   end
 
   test "badge survives tick97 with a small retained heap and deterministic scores" do
-    state = Enum.reduce(0..96, Page.init(countdown_ms: 0), &Page.advance(&2, &1 * 100))
+    state =
+      Enum.reduce(
+        0..96,
+        Page.init(countdown_ms: 0, rules: %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8}),
+        &Page.advance(&2, &1 * 100)
+      )
+
     assert state.match.game.tick == 97
     assert state.match.scores[1] == 2425
     assert state.match.scores[4] == 2425

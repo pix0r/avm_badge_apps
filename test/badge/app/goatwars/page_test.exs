@@ -2,18 +2,83 @@ defmodule Badge.App.Goatwars.PageTest do
   use ExUnit.Case, async: true
   alias Badge.App.Goatwars.{Match, Page}
 
+  test "pause and result captions draw without transparent glyph searches" do
+    state = Page.init(countdown_ms: 0)
+    {:ok, paused} = Page.handle_key({:char, 32}, state)
+    result = %{state | match: %{state.match | game: %{state.match.game | status: {:winner, 4}}, awarded_bonus: {4, 3000}}}
+
+    for page <- [paused, result] do
+      captions = for {:text, _, y, _, _, background, _} <- Page.render(page), y == 100 or y == 121, do: background
+      assert captions == [0x000020, 0x000020]
+    end
+  end
+
+  test "coarse default uses larger cells and a small fixed bitmap" do
+    state = Page.init(countdown_ms: 0)
+    assert {24, 14, bytes} = state.match.game.occupied
+    assert byte_size(bytes) <= 1400
+    assert state.layout.cell == 13
+    assert length(Page.render(state)) <= 26
+    assert state.match.game.config.step_ms == 100
+  end
+
+  test "settings can compare board sizes and rematches retain the selected size" do
+    state = Page.init(countdown_ms: 0)
+    {:ok, settings} = Page.handle_key({:char, ?s}, state)
+    {:ok, settings} = Page.handle_key({:char, ?g}, settings)
+    assert state.match.game.config.width == 24
+    assert Page.advance(settings, 5000).match == state.match
+    {:ok, full} = Page.handle_key(:enter, settings)
+    assert {78, 46, _} = full.match.game.occupied
+    assert full.layout.cell == 4
+    assert full.match.game.arena.next_shrink_tick == 244
+    {:ok, rematch} = Page.handle_key({:char, ?r}, full)
+    assert rematch.match.game.config.width == 78
+    {:ok, settings} = Page.handle_key({:char, ?s}, rematch)
+    {:ok, settings} = Page.handle_key({:char, ?g}, settings)
+    {:ok, coarse} = Page.handle_key(:enter, settings)
+    assert {24, 14, _} = coarse.match.game.occupied
+    assert coarse.match.game.arena.next_shrink_tick == 72
+  end
+
+  test "canceling a board-size change preserves custom rules" do
+    state = Page.init(rules: %{width: 40, height: 30, shrink_after: 99, step_ms: 200})
+    {:ok, settings} = Page.handle_key({:char, ?s}, state)
+    {:ok, settings} = Page.handle_key({:char, ?g}, settings)
+    {:ok, canceled} = Page.handle_key({:char, ?s}, settings)
+    {:ok, rematch} = Page.handle_key({:char, ?r}, canceled)
+    assert rematch.match.game.config.width == 40
+    assert rematch.match.game.config.height == 30
+    assert rematch.match.game.config.shrink_after == 99
+    assert rematch.match.game.config.step_ms == 200
+  end
+
+  test "score text covers its background without transparent glyph searches" do
+    items = Page.render(Page.init(countdown_ms: 0))
+    footer = for {:text, _, y, _, _, background, _} <- items, y >= 210, do: background
+    assert length(footer) == 12
+    assert Enum.all?(footer, &(&1 == 0x000020))
+    assert {:rect, 0, 209, 320, 31, 0x000020} in items
+  end
+
   test "simultaneous knockouts show brief goat calls without adding board drawing commands" do
-    state = Enum.reduce(0..30, Page.init(countdown_ms: 0), &Page.advance(&2, &1 * 100))
+    state =
+      Enum.reduce(
+        0..30,
+        Page.init(countdown_ms: 0, rules: %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8}),
+        &Page.advance(&2, &1 * 100)
+      )
+
     assert Enum.count(state.match.events, &match?({:crashed, _, _}, &1)) == 2
     items = Page.render(state)
-    assert length(items) <= 25
-    assert {:text, 47, 210, :default16px, 0xFFFFFF, :transparent, "BAA!"} in items
-    assert {:text, 90, 210, :default16px, 0xFFFFFF, :transparent, "BAA!"} in items
-    assert {:text, 4, 210, :default16px, 0xFFFFFF, :transparent, "775"} in items
+    assert length(items) <= 26
+    assert {:text, 47, 210, :default16px, 0xFFFFFF, 0x000020, "BAA!"} in items
+    assert {:text, 90, 210, :default16px, 0xFFFFFF, 0x000020, "BAA!"} in items
+    assert {:text, 4, 210, :default16px, 0xFFFFFF, 0x000020, "775"} in items
     assert state.match.scores[2] == 750
     expired = Enum.reduce(31..36, state, &Page.advance(&2, &1 * 100))
     refute Enum.any?(Page.render(expired), &match?({:text, _, _, _, _, _, "BAA!"}, &1))
-    assert {:text, 47, 210, :default16px, 0xFFFFFF, :transparent, "750"} in Page.render(expired)
+    assert {:text, 47, 210, :default16px, 0xFFFFFF, 0x000020, "750"} in Page.render(expired)
   end
 
   test "badge opponents stay simple across rematches, settings and the B shortcut" do
@@ -67,8 +132,8 @@ defmodule Badge.App.Goatwars.PageTest do
   test "GoatWars shows bottom scores and board energy without a round or shrink label" do
     state = Page.init(countdown_ms: 0)
     assert Page.title() == "GoatWars"
-    assert state.match.game.config.width == 78
-    assert state.match.game.config.height == 46
+    assert state.match.game.config.width == 24
+    assert state.match.game.config.height == 14
     labels = for {:text, _, _, _, _, _, label} <- Page.render(state), do: label
     assert "Energy" in labels
     refute Enum.any?(labels, &(String.contains?(&1, "ROUND") or String.contains?(&1, "SHRINK")))
@@ -192,7 +257,9 @@ defmodule Badge.App.Goatwars.PageTest do
     assert is_tuple(bitmap.match.game.occupied)
     assert legacy.match.controllers == bitmap.match.controllers
     assert bitmap.match.game.tick == 0
-    state = Enum.reduce(0..96, measured, &Page.advance(&2, &1 * 100))
+    full = Page.init(countdown_ms: 0, rules: %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8})
+    {:ok, full} = Page.handle_key({:char, ?t}, full)
+    state = Enum.reduce(0..96, full, &Page.advance(&2, &1 * 100))
     log = ExUnit.CaptureIO.capture_io(fn -> Page.render(state) end)
     assert log =~ "GW_DEVICE mode=bitmap tick=97 phase=render"
     {:ok, quiet} = Page.handle_key({:char, ?t}, state)
@@ -203,7 +270,7 @@ defmodule Badge.App.Goatwars.PageTest do
     state = Page.init()
     wall_y = state.layout.y + state.match.game.config.height * state.layout.cell
     items = Page.render(state)
-    assert {:text, 180, 210, :default16px, 0xFFFFFF, :transparent, "Energy"} in items
+    assert {:text, 180, 210, :default16px, 0xFFFFFF, 0x000020, "Energy"} in items
 
     for {:rect, x, y, 36, _height, _color} <- items, x in [4, 47, 90, 133] do
       assert y > wall_y

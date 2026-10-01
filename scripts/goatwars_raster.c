@@ -11,11 +11,16 @@ int main(int argc,char **argv) {
   BaseDisplayItem *items=calloc(len,sizeof(*items));
   for(size_t i=0;i<len;i++) {
     int tag; unsigned color; BaseDisplayItem *v=&items[i];
-    if(fscanf(input,"%d %d %d %d %d %u ",&tag,&v->x,&v->y,&v->width,&v->height,&color)!=6 || tag<0 || tag>2) return 2;
+    if(fscanf(input,"%d %d %d %d %d %u ",&tag,&v->x,&v->y,&v->width,&v->height,&color)!=6 || tag<0 || tag>3) return 2;
     v->brcolor=(color<<8)|255;
     if(tag==0) v->primitive=PrimitiveRect;
-    if(tag==1) {
+    if(tag==1 || tag==3) {
       v->primitive=PrimitiveText; v->data.text_data.fgcolor=v->brcolor; v->brcolor=0;
+      if(tag==3) {
+        unsigned background;
+        if(fscanf(input,"%u ",&background)!=1)return 2;
+        v->brcolor=(background<<8)|255;
+      }
       char buf[256]; fgets(buf,sizeof(buf),input); size_t l=strcspn(buf,"\r\n");buf[l]=0;
       v->data.text_data.text=strdup(buf);v->width=(int)l*8;v->height=16;
     }

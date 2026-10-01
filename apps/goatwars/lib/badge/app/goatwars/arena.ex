@@ -24,9 +24,8 @@ defmodule Badge.App.Goatwars.Arena do
   end
 
   @spec contains?(t(), {integer(), integer()}) :: boolean()
-  def contains?(arena, {x, y}) do
-    x >= Map.fetch!(arena, :left) and x <= Map.fetch!(arena, :right) and y >= Map.fetch!(arena, :top) and y <= Map.fetch!(arena, :bottom)
-  end
+  def contains?(%{left: left, right: right, top: top, bottom: bottom}, {x, y}),
+    do: x >= left and x <= right and y >= top and y <= bottom
 
   @spec advance(t(), Config.t(), non_neg_integer()) :: t()
   def advance(%{next_shrink_tick: nil} = arena, _config, _tick), do: arena
@@ -51,8 +50,8 @@ defmodule Badge.App.Goatwars.Arena do
 
   def warning?(%{next_shrink_tick: nil}, _config, _tick), do: false
 
-  def warning?(arena, config, tick),
-    do: tick >= Map.fetch!(arena, :next_shrink_tick) - Map.fetch!(config, :warning_ticks) and tick < Map.fetch!(arena, :next_shrink_tick)
+  def warning?(%{next_shrink_tick: deadline}, %{warning_ticks: warning}, tick),
+    do: tick >= deadline - warning and tick < deadline
 
   defp deadline(:never), do: nil
   defp deadline(tick), do: tick

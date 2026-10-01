@@ -1,11 +1,12 @@
 defmodule GoatwarsBenchmark do
   alias Badge.App.Goatwars.Page
+  @rules %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8}
 
   def start do
     :io.format(~c"GW_BENCH word_bytes=~p~n", [:erlang.system_info(:wordsize)])
 
     for tick <- [0, 30, 31, 32, 33, 34, 35, 36, 64, 96, 97, 128, 192, 207] do
-      state = build(Page.init(countdown_ms: 0), 0, tick)
+      state = build(Page.init(countdown_ms: 0, rules: @rules), 0, tick)
       now = tick * 100
       measure(~c"tick", state, fn -> Page.advance(state, now) end)
       measure(~c"render", state, fn -> Page.render(state) end)
@@ -13,7 +14,7 @@ defmodule GoatwarsBenchmark do
       :io.format(~c"GW_STATE tick=~p words=~p items=~p~n", [tick, :erts_debug.flat_size(state), length(Page.render(state))])
     end
 
-    state = build(Page.init(countdown_ms: 0), 0, 192)
+    state = build(Page.init(countdown_ms: 0, rules: @rules), 0, 192)
     match = Map.fetch!(state, :match)
     state = %{state | match: %{match | game: %{Map.fetch!(match, :game) | tick: 240}}}
     measure(~c"render", state, fn -> Page.render(state) end)
@@ -23,6 +24,22 @@ defmodule GoatwarsBenchmark do
     ticks = rounds(5, 0)
     elapsed = :erlang.monotonic_time(:microsecond) - started
     :io.format(~c"GW_ROUND cpu_us=~p ticks=~p rounds=5~n", [elapsed, ticks])
+
+    for {width, height} <- [{24, 14}, {78, 46}] do
+      rules = %{@rules | width: width, height: height}
+      state = build(Page.init(countdown_ms: 0, rules: rules), 0, 4)
+      started = :erlang.monotonic_time(:microsecond)
+      repeat(fn -> Page.render(Page.advance(state, 400)) end, 1000)
+      elapsed = :erlang.monotonic_time(:microsecond) - started
+
+      :io.format(~c"GW_SIZE width=~p height=~p tick=4 alive=4 frame_cpu_us=~p bytes=~p~n", [
+        width,
+        height,
+        div(elapsed, 1000),
+        width * height * 4
+      ])
+    end
+
     :ok
   end
 
@@ -49,7 +66,7 @@ defmodule GoatwarsBenchmark do
   end
 
   defp rounds(0, ticks), do: ticks
-  defp rounds(n, ticks), do: rounds(n - 1, ticks + play(Page.init(countdown_ms: 0), 0))
+  defp rounds(n, ticks), do: rounds(n - 1, ticks + play(Page.init(countdown_ms: 0, rules: @rules), 0))
 
   defp play(state, now) do
     state = Page.advance(state, now)

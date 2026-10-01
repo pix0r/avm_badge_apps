@@ -17,5 +17,8 @@ for variant in baseline current; do
   for tick in {1..207}; do
     "$out/raster/bench" "$out/$variant/scenes/$tick.scene" >> "$out/$variant/raster.log"
   done
+  for size in 24x14 78x46; do
+    "$out/raster/bench" "$out/$variant/scenes/$size.scene" > "$out/$variant/$size-raster.log"
+  done
 done
-python3 "$root/scripts/goatwars_compare.py" "$out/baseline/results.log" "$out/current/results.log" "$out/baseline/raster.log" "$out/current/raster.log"
+python3 "$root/scripts/goatwars_compare.py" "$out/baseline/results.log" "$out/current/results.log" "$out/baseline/raster.log" "$out/current/raster.log" --minimum-speedup "${GOATWARS_MIN_SPEEDUP:-10}"

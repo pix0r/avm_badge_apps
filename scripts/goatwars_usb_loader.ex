@@ -7,7 +7,11 @@ defmodule GoatwarsUsbLoader do
     :ok = :atomvm.add_avm_pack_binary(@main, name: :goatwars_usb_main)
     :ok = :atomvm.add_avm_pack_binary(@assets, name: :goatwars_usb_assets)
     state = Badge.App.Goatwars.Page.init(countdown_ms: 0)
-    play(state, 0)
+    {24, 14, bytes} = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :occupied)
+    1344 = byte_size(bytes)
+    91 = play(state, 0)
+    full = Badge.App.Goatwars.Page.init(countdown_ms: 0, rules: %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8})
+    207 = play(full, 0)
     :io.format(~c"Actual split USB images loaded and played on AtomVM~n")
     :ok
   end
@@ -24,6 +28,6 @@ defmodule GoatwarsUsbLoader do
       2425 = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :scores), 4)
     end
 
-    if Map.fetch!(game, :status) == :running, do: play(state, now + 100), else: 207 = tick
+    if Map.fetch!(game, :status) == :running, do: play(state, now + 100), else: tick
   end
 end

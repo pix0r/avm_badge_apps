@@ -20,5 +20,5 @@ for variant in baseline current; do
   "$build/src/AtomVM" "$out/$variant/benchmark.avm" > "$out/$variant/results.log" 2>&1
   tail -n 2 "$out/$variant/results.log"
 done
-python3 "$root/scripts/goatwars_compare.py" "$out/baseline/results.log" "$out/current/results.log"
+python3 "$root/scripts/goatwars_compare.py" "$out/baseline/results.log" "$out/current/results.log" --minimum-speedup "${GOATWARS_MIN_SPEEDUP:-10}"
 echo "Results: $out"

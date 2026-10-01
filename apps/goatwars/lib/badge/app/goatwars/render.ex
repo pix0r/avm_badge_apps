@@ -57,10 +57,15 @@ defmodule Badge.App.Goatwars.Render do
       else: @wall
   end
 
-  defp heads(game, layout) do
-    for player <- Game.living(game), Arena.contains?(Map.fetch!(game, :arena), Map.fetch!(player, :position)) do
-      {x, y} = point(Map.fetch!(player, :position), layout)
-      {:rect, x, y, Map.fetch!(layout, :cell), Map.fetch!(layout, :cell), 0xFFFFFF}
+  defp heads(%{arena: arena} = game, layout), do: heads(Game.living(game), arena, layout)
+  defp heads([], _arena, _layout), do: []
+
+  defp heads([%{position: position} | rest], arena, %{cell: cell} = layout) do
+    if Arena.contains?(arena, position) do
+      {x, y} = point(position, layout)
+      [{:rect, x, y, cell, cell, 0xFFFFFF} | heads(rest, arena, layout)]
+    else
+      heads(rest, arena, layout)
     end
   end
 
@@ -95,10 +100,11 @@ defmodule Badge.App.Goatwars.Render do
 
   defp join_run({row, column, id}, runs), do: [{row, column, id, 1} | runs]
 
-  defp frame(arena, layout, color) do
-    {x, y} = point({Map.fetch!(arena, :left), Map.fetch!(arena, :top)}, layout)
-    w = (Map.fetch!(arena, :right) - Map.fetch!(arena, :left) + 1) * Map.fetch!(layout, :cell)
-    h = (Map.fetch!(arena, :bottom) - Map.fetch!(arena, :top) + 1) * Map.fetch!(layout, :cell)
+  defp frame(%{left: left, top: top, right: right, bottom: bottom}, %{cell: cell, x: ox, y: oy}, color) do
+    x = ox + left * cell
+    y = oy + top * cell
+    w = (right - left + 1) * cell
+    h = (bottom - top + 1) * cell
 
     [
       {:rect, x - 1, y - 1, w + 2, 1, color},
@@ -133,6 +139,5 @@ defmodule Badge.App.Goatwars.Render do
      (Map.fetch!(arena, :bottom) - Map.fetch!(arena, :top) + 1) * Map.fetch!(layout, :cell), @board}
   end
 
-  defp point({x, y}, layout),
-    do: {Map.fetch!(layout, :x) + x * Map.fetch!(layout, :cell), Map.fetch!(layout, :y) + y * Map.fetch!(layout, :cell)}
+  defp point({x, y}, %{x: ox, y: oy, cell: cell}), do: {ox + x * cell, oy + y * cell}
 end

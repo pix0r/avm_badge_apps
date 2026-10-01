@@ -1,6 +1,6 @@
 # GoatWars
 
-A four-player lightcycle demo inspired by Steve Crutchfield's Macintosh lightcycle game.
+A four-goat trail game inspired by Steve Crutchfield's Macintosh lightcycle game.
 The pure Elixir engine runs without a badge, display, network, clock, or processes.
 The browser uses the real badge page API through the sibling firmware's simulator.
 
@@ -38,7 +38,7 @@ Exit the simulator's IEx with Ctrl-C, then `a`.
 | Esc, then F1 | Home, then reopen GoatWars |
 
 In settings, Up/Down selects a player; Left/Right cycles Human, AI Simple and
-Inactive. C cycles left/right key presets; choosing
+Inactive. G toggles the board between 24×14 and 78×46 cells. C cycles left/right key presets; choosing
 an occupied preset swaps assignments. R toggles beam retraction. Enter applies
 settings and starts a new countdown. At least two slots must be active. Settings
 suspend the match; S cancels without applying changes.
@@ -48,8 +48,10 @@ The last press before a tick wins. Held-key integration remains deferred.
 
 ## Rules and configuration
 
-The badge preset is 78×46 cells at 100 ms per step, stored as a fixed bitmap
-with packed trails and rendered as one scaled image. [Performance verification](../../docs/goatwars-performance.md)
+The badge preset is 24×14 cells, drawn at 13 pixels per cell, at 100 ms per step.
+Its fixed bitmap is 1,344 bytes with packed trails, rendered as one scaled image.
+S, G, Enter selects the original 78×46 board; rematches retain the selected size.
+[Performance verification](../../docs/goatwars-performance.md)
 contains benchmarks and device timing instructions.
 
  Blue starts at the bottom,
@@ -68,6 +70,7 @@ wins; simultaneous elimination of the last riders is a draw. Each successful
 surviving step earns 25 points. A crashing step earns none. Bonus starts at 5,000
 and decreases by 15 per tick, with a minimum of zero. The sole winner receives
 that bonus once; draws award none. Terminal states earn no further points.
+Knockouts show a brief `BAA!` in the score slot instead of a pixel burst.
 The footer shows round survival points above combined totals for each color,
 with Energy and Bonus on the right. Large displayed scores use `k` abbreviations;
 the stored values remain exact. The result announces the winner's bonus.
@@ -186,7 +189,8 @@ Transport, deadlines, snapshots, disconnects, and ownership belong outside `Game
 Tests cover collisions, plain-map state, contraction/warnings, deterministic replays,
 input consumption, AI delay/pursuit/configuration, badge timing, scoring and rematches.
 The browser loader registers the app only in the host runtime; firmware source
-and store publishing are unchanged. The renderer compresses horizontal trail runs.
+and store publishing are unchanged. Bitmap play uses one scaled image; legacy
+map rendering compresses horizontal trail runs.
 
 Readiness checks now run on the refactored GoatWars source: native badge-v1
 AtomVM execution, actual released boot-library loading, pack/signature checks,
