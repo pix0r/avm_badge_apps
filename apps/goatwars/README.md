@@ -20,7 +20,7 @@ mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- elixir scripts/goatwars_headless
 On first setup, run `MIX_TARGET=host mix deps.get` in `../avm_badge` with the same
 mise toolchain. The script accepts `AVM_BADGE_PATH` for a different firmware path.
 Visit http://localhost:3240. The title waits for Enter; four AI riders then launch
-after a three-second countdown, scores accumulate,
+after a separate three-second board countdown with cannon launchers. Scores accumulate,
 and completed rounds restart after two seconds. Two browser tabs share one board.
 Exit the simulator's IEx with Ctrl-C, then `a`.
 
@@ -48,13 +48,14 @@ settings and starts a new countdown. At least two slots must be active. Settings
 suspend the match; S cancels without applying changes and returns to the screen that opened them. Board size and speed are
 independent; rematches preserve both. Leaving and reopening restores defaults.
 
-The title, countdown, pause, win and draw screens share detailed goat/lightcycle
-art. Artwork is embedded as RLE-compressed sixteen-colour pixel indices (3,748
+The title shows detailed goat/lightcycle art and “DON’T LET IT CRASH”. Pause, win
+and draw screens reuse the goat. The countdown shows the full board and launchers.
+Artwork is embedded as RLE-compressed sixteen-colour pixel indices (3,748
 bytes), decoded once when the page opens, and reused as RGBA binaries (46.5 KiB).
 Stars and neon scenery are display primitives. The Elixir/Goatmire palette uses a
-purple board with gold, mint, coral and lavender trails. The app pack is 62,972
-bytes, 8,468 bytes above the `e08cff2` baseline and below the 65,536-byte Store
-limit. The matching offline USB build fits with 6,416 bytes free in the firmware
+purple board with gold, mint, coral and lavender trails. The app pack is 64,944
+bytes, 10,440 bytes above the `e08cff2` baseline and below the 65,536-byte Store
+limit. The matching offline USB build fits with 4,444 bytes free in the firmware
 partition and no free space in assets; rebuild and check both sizes after changes.
 The USB pack excludes host-only Mix tasks. [Artwork and extraction prompts](assets/source.json)
 record the two sprites; PNG previews are excluded from firmware packs.
@@ -114,10 +115,11 @@ are adaptation choices, not claims of exact emulation.
 
 ## AI and controllers
 
-The badge page uses `SimpleBot`: continue straight when clear, otherwise try
-left and right once. It performs no search, prediction or pursuit. Rematches,
-settings and B all retain this local policy. Advanced presets below apply to
-headless `Match.demo`, not to badge play.
+The badge page uses `SimpleBot`: compare straight, left and right using a short
+safety lookahead, pursue opponents and cut across their projected routes. Seeded
+variation changes comparable safe choices; each decision advances the seed, and
+the same initial seed reproduces a match. Rematches, settings and B retain this
+bounded local policy. Advanced presets below apply to headless `Match.demo`, not to badge play.
 
 Every rider has a controller: `:human` or `{module, memory}`. Modules implement
 `Controller.init/1` and `choose(game, player_id, memory) -> {turn_or_nil, memory}`.

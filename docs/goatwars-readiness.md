@@ -1,8 +1,34 @@
 # GoatWars hardware-free readiness
 
-The latest optimization and current benchmark evidence are in
-[performance verification](goatwars-performance.md). Older measurements below
-record the earlier readiness stages.
+Current title, countdown and badge-AI evidence is recorded below. Earlier
+optimization measurements are in [performance verification](goatwars-performance.md).
+The remaining sections record earlier readiness stages.
+
+## October 1 title, countdown and opponent update
+
+Apps branch `beamwars` keeps the detailed goat/lightcycle title and crash tagline.
+Enter starts a separate full-board countdown with four cannon launchers; riders
+and scores stay frozen through 3/2/1. Pause, win and draw retain goat artwork.
+The badge AI now checks three moves with bounded escape/lookahead, pursues nearby
+opponents, lays trails across projected routes and varies comparable safe choices.
+An evolving seed reproduces a match; the one fixed-point seed is normalized.
+
+TDD covered the board countdown and collision avoidance, interception, seed
+variation/evolution, bitmap parity and constant work with dense trail maps.
+All 184 apps tests, five real firmware UI integration scenarios and 11 Python
+checks pass. Native badge-v1 execution resolves all imports and 63 instructions
+in 21 game modules. Real Store and rebuilt split USB packs load and play on the
+released boot library. Heap fixtures, 900 seeded rounds and 32 retained frames
+pass the existing caps. The score/energy checkpoint uses controlled state rather
+than the previous AI's exact route.
+
+The app pack is 64,944 bytes, with 592 bytes below the Store limit. The offline
+USB main is 667,300/671,744 bytes; assets are 262,144/262,144 bytes. This update
+adds 1,972 bytes over the restored-art pack. Native desktop AtomVM measured about
+0.64–0.67 ms per four-rider frame at both 24×14 and 78×46. Host work is capped at 2,500
+reductions across all three board sizes, with no board-wide AI search. These are
+desktop checks; hardware frame timing and gameplay feel remain unmeasured.
+The paired `avm_badge` source and branch were unchanged, and no hardware was flashed.
 
 ## Scope and verdict
 

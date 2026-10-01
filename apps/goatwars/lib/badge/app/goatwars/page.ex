@@ -315,6 +315,16 @@ defmodule Badge.App.Goatwars.Page do
     Map.fetch!(state, :started) and (tick == 97 or (tick > 0 and rem(tick, 10) == 0))
   end
 
+  defp render_game(%{started: false, paused: false, launch_remaining: remaining} = state) do
+    game = Map.fetch!(Map.fetch!(state, :match), :game)
+    layout = Map.fetch!(state, :layout)
+
+    [
+      {:text, 156, 108, :default16px, 0xFFFFFF, 0x241332, int(div(remaining + 999, 1000))},
+      {:rect, 144, 102, 32, 28, 0x241332}
+    ] ++ Render.cannons(game, layout) ++ hud(state) ++ Render.scene(game, layout, Map.fetch!(state, :frame))
+  end
+
   defp render_game(state) do
     case caption(state) do
       nil ->
@@ -369,9 +379,6 @@ defmodule Badge.App.Goatwars.Page do
   defp knocked_out?([_ | rest], id), do: knocked_out?(rest, id)
 
   defp caption(%{paused: true}), do: {"PAUSED", "Space: back to the herd", 0xFFFFFF}
-
-  defp caption(%{started: false, launch_remaining: remaining}),
-    do: {int(div(remaining + 999, 1000)), "DON'T LET IT CRASH", 0xFFFFFF}
 
   defp caption(%{match: %{game: %{status: :draw}}}), do: {"DRAW", "No goat left standing", 0xFFFFFF}
 

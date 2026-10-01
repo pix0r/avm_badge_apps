@@ -1,6 +1,6 @@
 defmodule Badge.App.Goatwars.PageTest do
   use ExUnit.Case, async: true
-  alias Badge.App.Goatwars.{Match, Page}
+  alias Badge.App.Goatwars.{Board, Game, Match, Page}
 
   test "pause and result captions draw without transparent glyph searches" do
     state = Page.init(countdown_ms: 0)
@@ -160,12 +160,21 @@ defmodule Badge.App.Goatwars.PageTest do
   end
 
   test "simultaneous knockouts show brief goat calls without adding board drawing commands" do
-    state =
-      Enum.reduce(
-        0..30,
-        Page.init(countdown_ms: 0, rules: %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8}),
-        &Page.advance(&2, &1 * 100)
-      )
+    state = Page.init(countdown_ms: 0, rules: %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8})
+
+    {:ok, game} =
+      Game.new(state.match.game.config, [
+        %{id: 1, position: {20, 35}, direction: :north},
+        %{id: 2, position: {38, 20}, direction: :east},
+        %{id: 3, position: {40, 20}, direction: :west},
+        %{id: 4, position: {60, 20}, direction: :west}
+      ])
+
+    game = %{game | occupied: Board.new(game.config, game.occupied), tick: 30}
+    scores = %{1 => 750, 2 => 750, 3 => 750, 4 => 750}
+    match = Match.new(game, %{1 => :human, 2 => :human, 3 => :human, 4 => :human}, record_replay: false)
+    state = %{state | match: %{match | scores: scores, totals: scores}, scores: scores}
+    state = Page.advance(state, 3000)
 
     assert Enum.count(state.match.events, &match?({:crashed, _, _}, &1)) == 2
     items = Page.render(state)
@@ -358,7 +367,7 @@ defmodule Badge.App.Goatwars.PageTest do
     assert bitmap.match.game.tick == 0
     full = Page.init(countdown_ms: 0, rules: %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8})
     {:ok, full} = Page.handle_key({:char, ?t}, full)
-    state = Enum.reduce(0..96, full, &Page.advance(&2, &1 * 100))
+    state = %{full | match: %{full.match | game: %{full.match.game | tick: 97}}}
     log = ExUnit.CaptureIO.capture_io(fn -> Page.render(state) end)
     assert log =~ "GW_DEVICE mode=bitmap tick=97 phase=render"
     {:ok, quiet} = Page.handle_key({:char, ?t}, state)

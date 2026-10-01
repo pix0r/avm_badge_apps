@@ -18,11 +18,15 @@ defmodule Badge.App.Goatwars.StepBudgetTest do
   end
 
   test "a four-goat frame stays within a small traversal work budget" do
-    state = Enum.reduce(0..3, Page.init(countdown_ms: 0), &Page.advance(&2, &1 * 100))
-    {:reductions, before} = Process.info(self(), :reductions)
-    Enum.each(1..1000, fn _ -> Page.render(Page.advance(state, 400)) end)
-    {:reductions, after_count} = Process.info(self(), :reductions)
-    assert div(after_count - before, 1000) <= 600
+    for seed <- [1, 31], {width, height} <- [{24, 14}, {51, 30}, {78, 46}] do
+      state = Page.init(countdown_ms: 0, seed: seed, rules: %{width: width, height: height})
+      state = Enum.reduce(0..3, state, &Page.advance(&2, &1 * 100))
+      assert Enum.all?(state.match.game.players, fn {_, player} -> player.alive end)
+      {:reductions, before} = Process.info(self(), :reductions)
+      Enum.each(1..1000, fn _ -> Page.render(Page.advance(state, 400)) end)
+      {:reductions, after_count} = Process.info(self(), :reductions)
+      assert div(after_count - before, 1000) <= 2500
+    end
   end
 
   test "a tick without crashes does not traverse or rebuild the whole trail map" do

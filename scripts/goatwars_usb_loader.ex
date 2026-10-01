@@ -9,11 +9,12 @@ defmodule GoatwarsUsbLoader do
     state = Badge.App.Goatwars.Page.init(countdown_ms: 0)
     {51, 30, bytes} = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :occupied)
     6120 = byte_size(bytes)
-    90 = play(state, 0)
+    middle_result = play(state, 0)
+    ^middle_result = play(Badge.App.Goatwars.Page.init(countdown_ms: 0), 0)
     coarse = Badge.App.Goatwars.Page.init(countdown_ms: 0, rules: %{width: 24, height: 14, explosion_radius: 2, retract_speed: 8})
-    91 = play(coarse, 0)
+    {_tick, _scores, _status} = play(coarse, 0)
     full = Badge.App.Goatwars.Page.init(countdown_ms: 0, rules: %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8})
-    207 = play(full, 0)
+    {_tick, _scores, _status} = play(full, 0)
     :io.format(~c"Actual split USB images loaded and played on AtomVM~n")
     :ok
   end
@@ -25,11 +26,14 @@ defmodule GoatwarsUsbLoader do
     game = Map.fetch!(Map.fetch!(state, :match), :game)
     tick = Map.fetch!(game, :tick)
 
-    if tick == 97 do
-      2425 = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :scores), 1)
-      2425 = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :scores), 4)
-    end
+    true = tick < 5000
+    status = Map.fetch!(game, :status)
 
-    if Map.fetch!(game, :status) == :running, do: play(state, now + 100), else: tick
+    if status == :running do
+      play(state, now + 100)
+    else
+      true = status == :draw or is_tuple(status)
+      {tick, Map.fetch!(Map.fetch!(state, :match), :scores), status}
+    end
   end
 end

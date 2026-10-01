@@ -97,7 +97,12 @@ defmodule GoatwarsResources do
   def fixture(:fullsize), do: play(Page.init(countdown_ms: 0, rules: @full), 0, 0, 0, 0)
 
   def fixture(:reported_state) do
-    state = Enum.reduce(:lists.seq(0, 96), Page.init(countdown_ms: 0, rules: @full), fn tick, state -> Page.advance(state, tick * 100) end)
+    state = Page.init(countdown_ms: 0, rules: @full)
+    match = Map.fetch!(state, :match)
+    game = %{Map.fetch!(match, :game) | tick: 97}
+    scores = %{1 => 2425, 2 => 2425, 3 => 2425, 4 => 2425}
+    match = %{match | game: game, scores: scores, totals: scores, controllers: %{1 => :human, 2 => :human, 3 => :human, 4 => :human}}
+    state = %{state | match: match, scores: scores}
     2425 = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :scores), 1)
     2425 = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :scores), 4)
     game = Map.fetch!(Map.fetch!(state, :match), :game)
