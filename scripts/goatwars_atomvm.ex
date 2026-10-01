@@ -14,8 +14,22 @@ defmodule GoatwarsReadiness do
     ^paused = Page.advance(paused, 100_000)
     {:ok, settings} = Page.handle_key({:char, ?s}, state)
     ^settings = Page.advance(settings, 100_000)
+    {:ok, settings} = Page.handle_key({:char, ?f}, settings)
     {:ok, restarted} = Page.handle_key({:edit, :newline}, settings)
     false = restarted.started
+    200 = restarted.match.game.config.step_ms
+    restarted = restarted |> Page.advance(0) |> Page.advance(3000)
+    1 = Page.advance(restarted, 3199).match.game.tick
+    2 = Page.advance(restarted, 3200).match.game.tick
+
+    controls =
+      Enum.reduce([{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}], Page.init(), fn event, page ->
+        {:ok, next} = Page.handle_key(event, page)
+        next
+      end)
+
+    %{1 => :human, 2 => :human, 3 => :human, 4 => :human} = controls.match.controllers
+    %{1 => :left, 2 => :left, 3 => :left, 4 => :left} = controls.match.pending
     true = length(Page.render(restarted)) > 0
     :io.format(~c"GoatWars readiness passed~n")
     :ok

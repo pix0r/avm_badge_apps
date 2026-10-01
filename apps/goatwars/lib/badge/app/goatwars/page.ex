@@ -11,14 +11,21 @@ defmodule Badge.App.Goatwars.Page do
   @impl true
   def init(options \\ []) do
     rules =
-      Keyword.get(options, :rules, %{width: 24, height: 14, explosion_radius: 2, retract_speed: 8})
+      Keyword.get(options, :rules, %{width: 51, height: 30, explosion_radius: 2, retract_speed: 8})
 
     setup = Setup.new(Keyword.get(options, :profiles, %{}))
     seed = Keyword.get(options, :seed, 1)
     match = Match.demo(rules, seed, controllers(setup, seed), record_replay: false)
     match = if Keyword.get(options, :compact, true), do: %{match | game: Game.compact(Map.fetch!(match, :game))}, else: match
     config = Map.fetch!(Map.fetch!(match, :game), :config)
-    setup = %{setup | retract: Map.fetch!(config, :retract_speed) > 0, board: {Map.fetch!(config, :width), Map.fetch!(config, :height)}}
+
+    setup = %{
+      setup
+      | retract: Map.fetch!(config, :retract_speed) > 0,
+        board: {Map.fetch!(config, :width), Map.fetch!(config, :height)},
+        step_ms: Map.fetch!(config, :step_ms)
+    }
+
     countdown = Keyword.get(options, :countdown_ms, 3000)
 
     State.new(%{
@@ -89,8 +96,11 @@ defmodule Badge.App.Goatwars.Page do
   defp settings_key({:char, ?r}, state),
     do: {:ok, %{state | draft: %{Map.fetch!(state, :draft) | retract: not Map.fetch!(Map.fetch!(state, :draft), :retract)}}}
 
-  defp settings_key({:char, ?g}, %{draft: %{board: board} = draft} = state),
-    do: {:ok, %{state | draft: %{draft | board: if(board == {78, 46}, do: {24, 14}, else: {78, 46})}}}
+  defp settings_key({:char, ?g}, state),
+    do: {:ok, %{state | draft: Setup.cycle_board(Map.fetch!(state, :draft))}}
+
+  defp settings_key({:char, ?f}, state),
+    do: {:ok, %{state | draft: Setup.cycle_speed(Map.fetch!(state, :draft))}}
 
   defp settings_key({:char, ?s}, state),
     do: {:ok, %{state | screen: :game, draft: nil, launch_at: nil, due_at: nil}}
@@ -202,6 +212,7 @@ defmodule Badge.App.Goatwars.Page do
       Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :config)
       | width: width,
         height: height,
+        step_ms: Map.fetch!(Map.fetch!(state, :setup), :step_ms),
         shrink_after: shrink_after,
         retract_speed:
           if(Map.fetch!(Map.fetch!(state, :setup), :retract),
@@ -357,10 +368,10 @@ defmodule Badge.App.Goatwars.Page do
         slot = Map.fetch!(setup, :slots)[id]
         marker = if id == Map.fetch!(state, :selected), do: ">", else: " "
 
-        text(8, 57 + (id - 1) * 24, marker <> "P" <> int(id), 0xFFFFFF) ++
-          text(48, 57 + (id - 1) * 24, mode_label(Map.fetch!(slot, :mode)), 0xFFFFFF) ++
-          text(268, 57 + (id - 1) * 24, Setup.key_label(Map.fetch!(slot, :keys)), 0xFFFFFF) ++
-          [{:rect, 8, 55 + (id - 1) * 24, 32, 20, Render.color(id)}]
+        text(8, 53 + (id - 1) * 22, marker <> "P" <> int(id), 0xFFFFFF) ++
+          text(48, 53 + (id - 1) * 22, mode_label(Map.fetch!(slot, :mode)), 0xFFFFFF) ++
+          text(268, 53 + (id - 1) * 22, Setup.key_label(Map.fetch!(slot, :keys)), 0xFFFFFF) ++
+          [{:rect, 8, 51 + (id - 1) * 22, 32, 20, Render.color(id)}]
       end)
 
     hint = if Setup.valid?(setup), do: "Enter: start  S: cancel", else: "Need 2 active players"
@@ -369,9 +380,10 @@ defmodule Badge.App.Goatwars.Page do
 
     text(8, 29, "PLAYER SETTINGS", 0xFFFFFF) ++
       rows ++
-      text(8, 156, "R: Retract " <> if(Map.fetch!(setup, :retract), do: "ON", else: "OFF"), 0xFFFFFF) ++
-      text(8, 174, "G: Board " <> int(width) <> "x" <> int(height), 0xFFFFFF) ++
-      text(8, 192, "Arrows: mode  C: keys", 0xA4B8C9) ++
+      text(8, 144, "R: Retract " <> if(Map.fetch!(setup, :retract), do: "ON", else: "OFF"), 0xFFFFFF) ++
+      text(8, 162, "G: Board " <> int(width) <> "x" <> int(height), 0xFFFFFF) ++
+      text(8, 180, "F: Step " <> int(Map.fetch!(setup, :step_ms)) <> "ms", 0xFFFFFF) ++
+      text(8, 198, "Arrows: mode  C: keys", 0xA4B8C9) ++
       text(8, 217, hint, 0xFFFFFF) ++
       [{:rect, 0, 24, 320, 216, 0x000020}]
   end

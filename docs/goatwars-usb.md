@@ -63,10 +63,11 @@ manifest are not changed by building these images.
 
 1. Wait for Home. Press Right twice to reach home screen three, then press the
    square key for GoatWars. A three-second countdown should lead into a match
-   on the new 24×14 board with large 13-pixel cells.
+   on the new middle 51×30 board with 6-pixel cells.
 2. Use Left/Right to take over player one. Space pauses and resumes. `S` opens
-   player settings, arrows change selections, and Enter applies them. G toggles
-   the board size; S, G, Enter selects the original 78×46 board for comparison.
+   player settings, arrows change selections, and Enter applies them. G cycles
+   small/middle/full boards; F cycles 100/200/300/400 ms steps (higher is slower).
+   The default key pairs are Left/Right, Z/X, 1/2 and 9/0 for players 1–4.
 3. Press `R` to rematch. Return Home using the normal navigation key, then reopen
    GoatWars and confirm the game starts fresh.
 4. Restart the badge and reopen GoatWars without Wi-Fi; this USB build should
@@ -90,8 +91,8 @@ controller; its settings offer Human, AI Simple and Inactive.
 
 ## Performance diagnostics
 
-Version 0.1.1 defaults to a 24×14 bitmap board and a ticker with backpressure.
-Rematches preserve the board choice; leaving and reopening restores the default.
+Version 0.1.2 defaults to a 51×30 bitmap board and a ticker with backpressure.
+Rematches preserve board size and speed; leaving and reopening restores defaults.
 Press T in the game for timing logs; M then restarts the same seed in legacy or
 bitmap mode. The [performance guide](goatwars-performance.md) explains the local
 benchmarks, physical checks and what the measurements cover.

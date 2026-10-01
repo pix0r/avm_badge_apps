@@ -2,17 +2,19 @@ defmodule Badge.App.Goatwars.Setup do
   @moduledoc "Pure player settings; key presets remain unique by swapping assignments."
   alias __MODULE__.Slot
   @modes [:human, :beginner, :intermediate, :expert, :pro, :inactive]
-  @keys [:arrows, :ad, :jl, :vn]
+  @keys [:arrows, :zx, :one_two, :nine_zero]
+  @boards [{24, 14}, {51, 30}, {78, 46}]
+  @steps [100, 200, 300, 400]
 
   def new(controllers \\ %{}) do
     slots =
-      [{1, :arrows}, {2, :ad}, {3, :jl}, {4, :vn}]
+      [{1, :arrows}, {2, :zx}, {3, :one_two}, {4, :nine_zero}]
       |> Enum.map(fn {id, keys} ->
         {id, Slot.new(id, keys, Map.get(controllers, id, :intermediate))}
       end)
       |> Map.new()
 
-    %{slots: slots, retract: true, board: {24, 14}}
+    %{slots: slots, retract: true, board: {51, 30}, step_ms: 100}
   end
 
   def controllers(setup),
@@ -28,6 +30,8 @@ defmodule Badge.App.Goatwars.Setup do
     do: mode(setup, id, cycle(modes, Map.fetch!(Map.fetch!(setup, :slots)[id], :mode), delta))
 
   def cycle_keys(setup, id), do: keys(setup, id, cycle(@keys, Map.fetch!(Map.fetch!(setup, :slots)[id], :keys), 1))
+  def cycle_board(setup), do: %{setup | board: cycle(@boards, Map.fetch!(setup, :board), 1)}
+  def cycle_speed(setup), do: %{setup | step_ms: cycle(@steps, Map.fetch!(setup, :step_ms), 1)}
 
   def keys(setup, id, preset) do
     previous = Map.fetch!(Map.fetch!(setup, :slots)[id], :keys)
@@ -59,9 +63,9 @@ defmodule Badge.App.Goatwars.Setup do
   def label(:inactive), do: "Inactive"
   def label(_), do: "Custom AI"
   def key_label(:arrows), do: "L/R"
-  def key_label(:ad), do: "A/D"
-  def key_label(:jl), do: "J/L"
-  def key_label(:vn), do: "V/N"
+  def key_label(:zx), do: "Z/X"
+  def key_label(:one_two), do: "1/2"
+  def key_label(:nine_zero), do: "9/0"
 
   defp cycle(choices, current, delta) do
     index = index(choices, current, 0)
@@ -72,11 +76,11 @@ defmodule Badge.App.Goatwars.Setup do
   defp index([current | _], current, index), do: index
   defp index([_ | rest], current, index), do: index(rest, current, index + 1)
   defp key_turn(:arrows, {:move, turn}) when turn == :left or turn == :right, do: turn
-  defp key_turn(:ad, {:char, ?a}), do: :left
-  defp key_turn(:ad, {:char, ?d}), do: :right
-  defp key_turn(:jl, {:char, ?j}), do: :left
-  defp key_turn(:jl, {:char, ?l}), do: :right
-  defp key_turn(:vn, {:char, ?v}), do: :left
-  defp key_turn(:vn, {:char, ?n}), do: :right
+  defp key_turn(:zx, {:char, ?z}), do: :left
+  defp key_turn(:zx, {:char, ?x}), do: :right
+  defp key_turn(:one_two, {:char, ?1}), do: :left
+  defp key_turn(:one_two, {:char, ?2}), do: :right
+  defp key_turn(:nine_zero, {:char, ?9}), do: :left
+  defp key_turn(:nine_zero, {:char, ?0}), do: :right
   defp key_turn(_, _), do: nil
 end

@@ -13,11 +13,11 @@ defmodule Badge.App.Goatwars.PageTest do
     end
   end
 
-  test "coarse default uses larger cells and a small fixed bitmap" do
+  test "middle default fills the screen with a bounded bitmap" do
     state = Page.init(countdown_ms: 0)
-    assert {24, 14, bytes} = state.match.game.occupied
-    assert byte_size(bytes) <= 1400
-    assert state.layout.cell == 13
+    assert {51, 30, bytes} = state.match.game.occupied
+    assert byte_size(bytes) == 6120
+    assert state.layout.cell == 6
     assert length(Page.render(state)) <= 26
     assert state.match.game.config.step_ms == 100
   end
@@ -26,7 +26,7 @@ defmodule Badge.App.Goatwars.PageTest do
     state = Page.init(countdown_ms: 0)
     {:ok, settings} = Page.handle_key({:char, ?s}, state)
     {:ok, settings} = Page.handle_key({:char, ?g}, settings)
-    assert state.match.game.config.width == 24
+    assert state.match.game.config.width == 51
     assert Page.advance(settings, 5000).match == state.match
     {:ok, full} = Page.handle_key(:enter, settings)
     assert {78, 46, _} = full.match.game.occupied
@@ -39,6 +39,58 @@ defmodule Badge.App.Goatwars.PageTest do
     {:ok, coarse} = Page.handle_key(:enter, settings)
     assert {24, 14, _} = coarse.match.game.occupied
     assert coarse.match.game.arena.next_shrink_tick == 72
+    {:ok, settings} = Page.handle_key({:char, ?s}, coarse)
+    {:ok, settings} = Page.handle_key({:char, ?g}, settings)
+    {:ok, middle} = Page.handle_key(:enter, settings)
+    assert {51, 30, _} = middle.match.game.occupied
+    assert middle.layout.cell == 6
+    assert middle.match.game.arena.next_shrink_tick == 158
+  end
+
+  test "settings apply slower steps independently of board size and preserve them on rematch" do
+    state = Page.init(countdown_ms: 0)
+    {:ok, settings} = Page.handle_key({:char, ?s}, state)
+    {:ok, settings} = Page.handle_key({:char, ?f}, settings)
+    assert settings.match.game.config.step_ms == 100
+    labels = for {:text, _, _, _, _, _, label} <- Page.render(settings), do: label
+    assert "F: Step 200ms" in labels
+    assert "G: Board 51x30" in labels
+    assert "Z/X" in labels
+    assert "1/2" in labels
+    assert "9/0" in labels
+    {:ok, slow} = Page.handle_key(:enter, settings)
+    assert slow.match.game.config.width == 51
+    slow = slow |> Page.advance(0) |> Page.advance(3000)
+    assert slow.match.game.tick == 1
+    assert Page.advance(slow, 3199).match.game.tick == 1
+    assert Page.advance(slow, 3200).match.game.tick == 2
+    {:ok, rematch} = Page.handle_key({:char, ?r}, slow)
+    assert rematch.match.game.config.step_ms == 200
+    {:ok, settings} = Page.handle_key({:char, ?s}, rematch)
+    {:ok, settings} = Page.handle_key({:char, ?g}, settings)
+    {:ok, full} = Page.handle_key(:enter, settings)
+    assert full.match.game.config.width == 78
+    assert full.match.game.config.step_ms == 200
+  end
+
+  test "speed cycles through slower steps and wraps back to the original pace" do
+    {:ok, settings} = Page.handle_key({:char, ?s}, Page.init())
+
+    Enum.reduce([200, 300, 400, 100], settings, fn expected, settings ->
+      {:ok, next} = Page.handle_key({:char, ?f}, settings)
+      {:ok, game} = Page.handle_key(:enter, next)
+      assert game.match.game.config.step_ms == expected
+      next
+    end)
+  end
+
+  test "canceling a speed change retains a custom pace" do
+    state = Page.init(rules: %{width: 40, height: 30, step_ms: 250})
+    {:ok, settings} = Page.handle_key({:char, ?s}, state)
+    {:ok, settings} = Page.handle_key({:char, ?f}, settings)
+    {:ok, canceled} = Page.handle_key({:char, ?s}, settings)
+    {:ok, rematch} = Page.handle_key({:char, ?r}, canceled)
+    assert rematch.match.game.config.step_ms == 250
   end
 
   test "canceling a board-size change preserves custom rules" do
@@ -132,8 +184,8 @@ defmodule Badge.App.Goatwars.PageTest do
   test "GoatWars shows bottom scores and board energy without a round or shrink label" do
     state = Page.init(countdown_ms: 0)
     assert Page.title() == "GoatWars"
-    assert state.match.game.config.width == 24
-    assert state.match.game.config.height == 14
+    assert state.match.game.config.width == 51
+    assert state.match.game.config.height == 30
     labels = for {:text, _, _, _, _, _, label} <- Page.render(state), do: label
     assert "Energy" in labels
     refute Enum.any?(labels, &(String.contains?(&1, "ROUND") or String.contains?(&1, "SHRINK")))
@@ -221,7 +273,7 @@ defmodule Badge.App.Goatwars.PageTest do
     state = Page.init(countdown_ms: 0)
 
     state =
-      Enum.reduce([{:move, :left}, {:char, ?a}, {:char, ?j}, {:char, ?v}], state, fn key, state ->
+      Enum.reduce([{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}], state, fn key, state ->
         {:ok, state} = Page.handle_key(key, state)
         state
       end)

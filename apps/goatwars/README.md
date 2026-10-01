@@ -26,9 +26,9 @@ Exit the simulator's IEx with Ctrl-C, then `a`.
 | Keys | Action |
 | --- | --- |
 | Left / Right | Take over blue (player 1), turn left / right |
-| A / D | Take over red (player 2) |
-| J / L | Take over green (player 3) |
-| V / N | Take over yellow (player 4) |
+| Z / X | Take over red (player 2), turn left / right |
+| 1 / 2 | Take over green (player 3), turn left / right |
+| 9 / 0 | Take over yellow (player 4), turn left / right |
 | Space | Pause / resume |
 | R | New round, preserve total scores |
 | S | Open / cancel player settings |
@@ -38,19 +38,22 @@ Exit the simulator's IEx with Ctrl-C, then `a`.
 | Esc, then F1 | Home, then reopen GoatWars |
 
 In settings, Up/Down selects a player; Left/Right cycles Human, AI Simple and
-Inactive. G toggles the board between 24×14 and 78×46 cells. C cycles left/right key presets; choosing
+Inactive. G cycles 24×14, 51×30 and 78×46 cells. F cycles the step duration
+through 100, 200, 300 and 400 ms; larger durations slow the game. C cycles left/right key presets; choosing
 an occupied preset swaps assignments. R toggles beam retraction. Enter applies
 settings and starts a new countdown. At least two slots must be active. Settings
-suspend the match; S cancels without applying changes.
+suspend the match; S cancels without applying changes. Board size and speed are
+independent; rematches preserve both. Leaving and reopening restores defaults.
 
 A keypress supplies one turn on the next tick; absent input maintains direction.
 The last press before a tick wins. Held-key integration remains deferred.
 
 ## Rules and configuration
 
-The badge preset is 24×14 cells, drawn at 13 pixels per cell, at 100 ms per step.
-Its fixed bitmap is 1,344 bytes with packed trails, rendered as one scaled image.
-S, G, Enter selects the original 78×46 board; rematches retain the selected size.
+The badge preset is 51×30 cells, drawn at 6 pixels per cell, at 100 ms per step.
+Its fixed bitmap is 6,120 bytes with packed trails, rendered as one scaled image.
+S, G, Enter selects the original 78×46 board. Press G twice in settings to
+select the small 24×14 board instead. F adjusts speed without changing the board.
 [Performance verification](../../docs/goatwars-performance.md)
 contains benchmarks and device timing instructions.
 

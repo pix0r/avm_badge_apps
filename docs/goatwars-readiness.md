@@ -22,16 +22,16 @@ known unresolved hardware risk.
 
 | Gate | Result |
 | --- | --- |
-| Apps host suite | 153 tests, zero failures; 11 Python checks pass |
+| Apps host suite | 157 tests, zero failures; 11 Python checks pass |
 | Selected firmware suite | 1,408 tests, zero failures; two asset-regeneration tests excluded |
 | Native badge-v1 execution | 20 seeded matches plus countdown, pause, settings, restart and render assertions pass |
 | Exact VM compatibility | All imports and 59 instruction types in 19 game modules resolve against pinned VM sources/libraries |
 | Actual released boot library | Real app pack loads dynamically; imported library exports and page lifecycle pass on native AtomVM with released boot.avm |
-| Store packaging | 53,736 bytes, under the 65,536-byte limit; native pack and host pack tests pass |
+| Store packaging | 54,200 bytes, under the 65,536-byte limit; native pack and host pack tests pass |
 | Store authentication | Disposable-key signed pack verifies; tampering is rejected; no production key or publishing used |
 | Real firmware UI | Four integration scenarios pass, including ticker backpressure: empty NVS launch/key routing, retained installation with offline reload failure, crashed game recovery to Home |
-| Resource stress | Both board sizes, exact tick-97 state, dense board, 25 entries and 600 total rounds pass at 4,096/8,192/16,384 words; 32 retained frames in either size pass at 32,768 words; binary memory is checked separately |
-| Actual USB game delivery | Rebuilt main/assets packs load together on native AtomVM; default round ends at tick 91 and original full-size round at 207 |
+| Resource stress | All three board sizes, exact tick-97 state, dense board, 25 entries and 900 total rounds pass at 4,096/8,192/16,384 words; 32 retained frames in each size pass at 32,768 words; binary memory is checked separately |
+| Actual USB game delivery | Rebuilt main/assets packs load together on native AtomVM; default middle round ends at tick 90, small at 91 and full-size at 207 |
 | Simulator | Built-in splash/home/reboot check passes; game interaction covered separately through real UI |
 | First installation commands | Fake-flasher tests cover base image offsets/checksum refusal, modern/legacy/Python esptool discovery and error propagation |
 | Partition capacity | Released VM/boot plus built assets/main fit all source and released binary partitions |
@@ -75,7 +75,7 @@ it does not exercise an actual HTTPS transfer or physical flash wear/power loss.
 ## Artifact identity and first-device installation
 
 Game pack SHA-256:
-`f0d11e08dfac41c9bc2c135f84fa4b4f1e4c2062e5d879c295abe30578425d78`.
+`67a15e3ccabc3aeeaf4ba4b84acbe88dd57c9452da93b43fcaa0a4c0c49eee2b`.
 Released boot.avm is 524,880 bytes, SHA-256
 `652d98edf174ea7ec650b9e573a4cb479fbf99fc7d017cddfdebe4fd97f2adbf`.
 Release checksums verify and its seven partition rows match source exactly.
@@ -84,7 +84,7 @@ Release checksums verify and its seven partition rows match source exactly.
 | --- | ---: | ---: | ---: |
 | factory VM | 1,742,512 | 1,966,080 | 223,568 |
 | boot | 524,880 | 557,056 | 32,176 |
-| USB assets with game modules | 259,672 | 262,144 | 2,472 |
+| USB assets with game modules | 260,136 | 262,144 | 2,008 |
 | USB main firmware | 665,480 | 671,744 | 6,264 |
 
 A blank device needs the pinned base image (including boot.avm and matching
@@ -116,7 +116,8 @@ The runner checks source and boot identities, audits compiled code, loads the
 actual app pack and runs lifecycle/match/resource checks. It fails on unexpected
 errors. Generated VM builds, packs, disposable keys and logs stay outside the repo.
 Earlier evidence is in `/private/tmp/goatwars-readiness`; current performance and
-USB evidence is under `/private/tmp/beamwars-readiness/goatwars-coarse-verified-*`.
+USB evidence is under `/private/tmp/beamwars-readiness/goatwars-coarse-verified-*`
+and `/private/tmp/beamwars-readiness/goatwars-middle-native`.
 Temporary artifacts should be regenerated if those directories are cleaned.
 
 ## Physical acceptance still required
@@ -171,3 +172,14 @@ binary samples are over 10× smaller. Settings G toggles the original 78×46 boa
 both modes retain 100 ms steps and pass the final native memory/USB gates.
 All final checks and image rebuilding were hardware-free. The new physical
 speedup remains unmeasured.
+
+## Middle board and speed settings
+
+Version 0.1.2 defaults to 51×30 with 6-pixel cells; G cycles all three board
+sizes and F cycles 100/200/300/400 ms steps. Applied choices survive rematches;
+canceling settings preserves custom rules. Adjacent controls are Left/Right,
+Z/X, 1/2 and 9/0. Native lifecycle tests exercise speed and key routing, and the
+actual USB split is rebuilt and tested. The new middle board passes 300 seeded
+rounds across three heap caps, with a peak sampled binary usage of 8,500 bytes
+at frame boundaries and 202,684 bytes with 32 rendered frames retained. Total
+stress is 900 rounds across the three sizes. The badge was not accessed.

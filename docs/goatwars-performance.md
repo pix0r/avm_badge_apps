@@ -1,13 +1,35 @@
 # GoatWars performance verification
 
-The latest October 1 build defaults to a 24×14 board with 13-pixel cells and a
-fixed 1,344-byte RGBA bitmap. The original 78×46 board remains selectable: press
-S, G, then Enter. Paths are packed coordinate binaries. Rendering submits one
+The latest October 1 build defaults to a 51×30 board with 6-pixel cells and a
+fixed 6,120-byte RGBA bitmap. In settings, G cycles 24×14, 51×30 and 78×46;
+F cycles 100, 200, 300 and 400 ms per step. Enter applies both choices, S cancels,
+and rematches retain them. Paths are packed coordinate binaries. Rendering submits one
 scaled board image. The board background is solid; the former grid lines are omitted.
 Headless matches still use maps. The firmware ticker waits for a completed UI
 callback before requesting another frame, preventing a backlog ahead of keys.
 
-## Further optimization and smaller-board fallback
+## Middle board and configurable pace
+
+After the small board proved too fast in physical play, version 0.1.2 adds the
+arithmetic midpoint 51×30 as the default. Its cells are 6 pixels wide versus
+13 for 24×14 and 4 for 78×46. The bitmap is 2.35× smaller than the original.
+Movement remains one cell per step; configurable step durations slow it without
+changing collision, scoring or AI rules. Default 100 ms steps are unchanged.
+The first middle-board match ends at tick 90. Original tick-97 regression checks
+still use the explicit full-size board.
+
+Controls default to Left/Right arrows, Z/X, 1/2 and 9/0. C still cycles unique
+key pairs, swapping the other assignment when necessary. The new settings and
+controls have failing-first host tests and native AtomVM lifecycle checks.
+The repeatable USB images contain the new default; no badge was accessed.
+157 host tests, 11 Python checks and four firmware UI scenarios pass. Native
+stress covers 900 rounds across all three sizes. Middle-board peak sampled
+binary usage at frame boundaries is 8,500 bytes; retaining 32 rendered frames
+peaks at 202,684 bytes. These are not total badge RAM measurements. Latest native
+and actual USB-image evidence is in
+`/private/tmp/beamwars-readiness/goatwars-middle-native`.
+
+## Earlier smaller-board fallback (`3df68da`)
 
 The new request was another 5× CPU improvement or a lower-resolution board.
 Against the committed knockout fix `50696f1`, optimization reached 1.79× for
@@ -19,7 +41,7 @@ Both versions run the same five full-size rounds, 1,035 ticks, and all 207 C
 raster frames on the pinned tools below. Shorter small-board matches do not
 count toward the CPU comparison.
 
-| Work | `50696f1` | Latest build | Improvement |
+| Work | `50696f1` | `3df68da` | Improvement |
 | --- | ---: | ---: | ---: |
 | Five full-size rounds: advance + render | 368,599 µs | 240,613 µs | 1.53× |
 | Mean C raster per full-size frame | 219.5 µs | 88.5 µs | 2.48× |
