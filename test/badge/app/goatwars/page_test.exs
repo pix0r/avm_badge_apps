@@ -237,9 +237,10 @@ defmodule Badge.App.Goatwars.PageTest do
     {:ok, settings} = Page.handle_key({:move, :right}, settings)
     {:ok, applied} = Page.handle_key(:enter, settings)
     assert_simple(applied)
-    {:ok, human} = Page.handle_key({:move, :left}, state)
-    {:ok, bots} = Page.handle_key({:char, ?b}, human)
+    assert Page.handle_key({:move, :left}, state) == :ignore
+    {:ok, bots} = Page.handle_key({:char, ?b}, state)
     assert_simple(bots)
+    assert_simple(Page.advance(bots, 0))
   end
 
   defp assert_simple(state) do
@@ -367,16 +368,12 @@ defmodule Badge.App.Goatwars.PageTest do
 
   test "four key pairs can take over four bots and apply one turn" do
     state = Page.init(countdown_ms: 0)
-
-    state =
-      Enum.reduce([{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}], state, fn key, state ->
-        {:ok, state} = Page.handle_key(key, state)
-        state
-      end)
-
+    for key <- [{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}],
+      do: assert(Page.handle_key(key, state) == :ignore)
+    state = Page.advance(state, 1000)
     assert state.match.controllers == %{1 => :human, 2 => :human, 3 => :human, 4 => :human}
-    assert state.match.pending == %{1 => :left, 2 => :left, 3 => :left, 4 => :left}
-    assert Page.advance(state, 1000).match.pending == %{}
+    assert state.match.pending == %{}
+    assert Enum.map(1..4, &state.match.game.players[&1].direction) == [:west, :east, :north, :south]
   end
 
   test "rounds restart after a visible result pause and scores persist" do

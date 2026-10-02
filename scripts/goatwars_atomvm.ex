@@ -1,5 +1,5 @@
 defmodule GoatwarsReadiness do
-  alias Badge.App.Goatwars.{Page, Match}
+  alias Badge.App.Goatwars.{Page, Match, Game}
 
   def start do
     rounds(1)
@@ -34,15 +34,36 @@ defmodule GoatwarsReadiness do
 
     controls =
       Enum.reduce([{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}], Page.init(countdown_ms: 0), fn event, page ->
-        {:ok, next} = Page.handle_key(event, page)
-        next
+        :ignore = Page.handle_key(event, page)
+        page
       end)
 
+    controls = Page.advance(controls, 0)
     %{1 => :human, 2 => :human, 3 => :human, 4 => :human} = controls.match.controllers
-    %{1 => :left, 2 => :left, 3 => :left, 4 => :left} = controls.match.pending
+    %{} = controls.match.pending
+    :west = controls.match.game.players[1].direction
+    wall_turn()
     true = length(Page.render(restarted)) > 0
     :io.format(~c"GoatWars readiness passed~n")
     :ok
+  end
+
+  defp wall_turn do
+    page = Page.init(countdown_ms: 0)
+    {:ok, game} = Game.new(page.match.game.config, [
+      %{id: 1, position: {0, 10}, direction: :west},
+      %{id: 2, position: {11, 10}, direction: :east}
+    ])
+    match = Match.new(Game.compact(game), %{1 => :human, 2 => :human})
+    false = Match.tick(match).game.players[1].alive
+    page = %{page | match: match}
+    :ignore = Page.handle_key({:move, :left}, page)
+    next = Page.advance(page, 0)
+    true = next.match.game.players[1].alive
+    {0, 11} = next.match.game.players[1].position
+    :south = next.match.game.players[1].direction
+    :south = Page.advance(next, 100).match.game.players[1].direction
+    :ok = Page.leave(next)
   end
 
   defp rounds(21), do: :ok

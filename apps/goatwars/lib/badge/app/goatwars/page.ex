@@ -1,5 +1,9 @@
 defmodule Badge.App.Goatwars.Page do
-  @moduledoc "GoatWars badge adapter. S opens player settings; Space pauses; R rematches."
+  @moduledoc """
+  GoatWars badge adapter. S opens player settings; Space pauses; R rematches.
+
+  Keys and ticks share the UI process; steering is buffered there until a step is due.
+  """
   use Badge.Page
   alias Badge.App.Goatwars.{Art, Game, Match, Render, Setup, SimpleBot}
   alias __MODULE__.State
@@ -59,12 +63,15 @@ defmodule Badge.App.Goatwars.Page do
 
   def handle_key({:char, ?s}, state), do: open_settings(state)
 
-  def handle_key({:char, 32}, state),
-    do: {:ok, %{state | paused: not Map.fetch!(state, :paused), due_at: nil, launch_at: nil}}
+  def handle_key({:char, 32}, state) do
+    leave(state)
+    {:ok, %{state | paused: not Map.fetch!(state, :paused), due_at: nil, launch_at: nil}}
+  end
 
   def handle_key({:char, char}, state) when char == ?r or char == ?R, do: {:ok, restart(state)}
 
   def handle_key({:char, char}, state) when char == ?b or char == ?B do
+    leave(state)
     match =
       Enum.reduce(Map.keys(Map.fetch!(Map.fetch!(state, :match), :controllers)), Map.fetch!(state, :match), fn id, match ->
         Match.control(match, id, {SimpleBot, SimpleBot.init(Map.fetch!(state, :round) * 31 + id * 13)})
@@ -76,15 +83,35 @@ defmodule Badge.App.Goatwars.Page do
     {:ok, %{state | match: match, setup: setup}}
   end
 
-  def handle_key(event, state) do
-    case Setup.binding(Map.fetch!(state, :setup), event) do
+  def handle_key(event, %{input_ref: ref, setup: setup}) do
+    case Setup.binding(setup, event) do
       {id, turn} ->
-        match = Map.fetch!(state, :match) |> Match.control(id, :human) |> Match.command(id, turn)
-        {:ok, %{state | match: match, setup: Setup.mode(Map.fetch!(state, :setup), id, :human)}}
+        turns =
+          case :erlang.get(ref) do
+            :undefined -> %{}
+            turns -> turns
+          end
+
+        :erlang.put(ref, Map.put(turns, id, turn))
+        :ignore
 
       nil ->
         :ignore
     end
+  end
+
+  @impl true
+  def leave(%{input_ref: ref}) do
+    :erlang.erase(ref)
+    :ok
+  end
+  def leave(_state), do: :ok
+
+  defp apply_turns([], state), do: state
+
+  defp apply_turns([{id, turn} | rest], %{match: match, setup: setup} = state) do
+    match = match |> Match.control(id, :human) |> Match.command(id, turn)
+    apply_turns(rest, %{state | match: match, setup: Setup.mode(setup, id, :human)})
   end
 
   defp title_key(:enter, state), do: {:ok, %{state | screen: :game}}
@@ -93,8 +120,10 @@ defmodule Badge.App.Goatwars.Page do
   defp title_key({:char, ?s}, state), do: open_settings(state)
   defp title_key(_, _), do: :ignore
 
-  defp open_settings(state),
-    do: {:ok, %{state | screen: :settings, settings_from: Map.fetch!(state, :screen), draft: Map.fetch!(state, :setup)}}
+  defp open_settings(state) do
+    leave(state)
+    {:ok, %{state | screen: :settings, settings_from: Map.fetch!(state, :screen), draft: Map.fetch!(state, :setup)}}
+  end
 
   defp settings_key({:move, :up}, state),
     do: {:ok, %{state | selected: max(Map.fetch!(state, :selected) - 1, 1)}}
@@ -195,7 +224,8 @@ defmodule Badge.App.Goatwars.Page do
 
   def advance(
         %{
-          match: %{totals: previous_totals} = previous_match,
+          input_ref: ref,
+          match: %{totals: previous_totals},
           scores: previous_scores,
           effects: previous_effects,
           due_at: previous_due,
@@ -203,6 +233,11 @@ defmodule Badge.App.Goatwars.Page do
         } = state,
         now
       ) do
+    %{match: previous_match} = state =
+      case :erlang.erase(ref) do
+        :undefined -> state
+        turns -> apply_turns(:maps.to_list(turns), state)
+      end
     %{totals: totals, events: events, game: %{config: %{step_ms: step_ms}, status: status}} = match = Match.tick(previous_match)
     scores = add_scores(:maps.to_list(totals), previous_totals, previous_scores)
     effects = crash_effects(events, age_effects(previous_effects))
@@ -249,6 +284,7 @@ defmodule Badge.App.Goatwars.Page do
            compact: compact
          } = state
        ) do
+    leave(state)
     %{width: old_width, height: old_height, shrink_after: old_shrink, retract_speed: old_retract} = previous
     shrink_after = if {width, height} == {old_width, old_height}, do: old_shrink, else: 2 * (width + height) - 4
 

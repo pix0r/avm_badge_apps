@@ -8,6 +8,7 @@ defmodule Badge.App.Goatwars.Page.State do
         compact: true,
         benchmark: false,
         bench_previous: nil,
+        input_ref: :erlang.make_ref(),
         result_until: nil,
         launch_at: nil,
         round: 1,
