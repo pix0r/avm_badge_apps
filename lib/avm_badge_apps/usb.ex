@@ -33,6 +33,12 @@ defmodule AvmBadgeApps.Usb do
 
     try do
       [{Badge.Pages, binary}] = Code.compile_string(pages_source(inputs.pages_source))
+      index = Enum.find_index(Badge.Pages.all(), &(&1 == Badge.App.Goatwars.Page))
+      keys = Badge.Pages.keys()
+      screen = div(index, length(keys))
+      key = Enum.at(keys, rem(index, length(keys)))
+      File.write!(Path.join(output, "navigation.txt"),
+        "On Home, press Right #{screen} times, then the #{key} key to open GoatWars.\n")
       pages = Path.join(stage, "Elixir.Badge.Pages.beam")
       File.write!(pages, binary)
       stripped = Path.join(stage, "base.avm")

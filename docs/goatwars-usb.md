@@ -9,7 +9,7 @@ The Store firmware is included; the game's public Store installation is separate
 Connect the badge over USB and close any serial monitor. In Terminal:
 
 ```sh
-cd /Users/mike/code/_Learn/goatmire-2026/avm_badge_apps/.worktrees/goatwars-hardware/avm_badge_apps
+cd /Users/mike/code/_Learn/goatmire-2026/avm_badge_apps/.worktrees/goatwars-new-store/avm_badge_apps
 ./scripts/goatwars_install.sh
 ```
 
@@ -49,8 +49,8 @@ are preserved. This board's base artifacts match pinned `badge-v1`; a full base
 install is unnecessary. The script assumes the board boots the default main slot;
 a board configured to boot the alternate slot must be handled separately.
 
-Existing backups are in
-`/Users/mike/code/_Learn/goatmire-2026/badge-backups/snapshots/`.
+The verified full-flash backup from this installation is in
+`../recovery/badge-full-before.bin` (4 MiB, including private NVS data).
 The script does not create another backup or erase flash. An interrupted two-pack
 write can leave code and assets mismatched; rerun the installer after reconnecting.
 
@@ -62,7 +62,7 @@ manifest are not changed by building these images.
 ## First physical test
 
 1. Wait for Home. Press Right twice to reach home screen three, then press the
-   square key for GoatWars. The title waits for Enter. A three-second countdown
+   clover key for GoatWars. The title waits for Enter. A three-second countdown
    then leads into M Square, 23×23 cells at 8 pixels per cell.
 2. Use Left/Right to take over player one. Space pauses and resumes. `S` opens
    player settings, arrows change selections, and Enter applies them. G cycles
@@ -76,11 +76,13 @@ manifest are not changed by building these images.
 5. Record any reboot, return to Home, missing text, sluggish input or visual
    corruption. Include what you pressed and how long it had been running.
 
-The previous physical builds were reported as laggy. This latest build was
-prepared without accessing the badge; its physical results remain pending.
-Host/native readiness evidence is in
-[the readiness report](goatwars-readiness.md). Store HTTPS remains a separate
-known firmware risk; this offline test does not establish its reliability.
+On October 2, 2026, this build was flashed over USB and the user confirmed that
+GoatWars displays and responds correctly. The bounded boot log showed Home,
+Wi-Fi reconnection and clock synchronization. Store opens; its online catalog
+was not verified because the network was poor.
+Host/native checks passed, including actual Store-pack and split USB-image
+loading on the pinned badge-v1 VM and boot library. These checks do not establish
+the reliability of HTTPS catalog or pack downloads on the physical badge.
 
 ## Developer checks
 

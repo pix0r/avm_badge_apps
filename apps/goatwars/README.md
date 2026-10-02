@@ -59,7 +59,7 @@ Stars and neon scenery are display primitives. The Elixir/Goatmire palette uses 
 slightly lighter purple board without grid lines and saturated bright purple,
 neon green, hot pink and violet trails. The app pack is 64,656 bytes, under the 65,536-byte
 Store limit. The matching offline USB build has
-4,252 bytes free in firmware and no free space in assets; rebuild and check both
+32,612 bytes free in firmware and no free space in assets; rebuild and check both
 sizes after changes.
 The USB pack excludes host-only Mix tasks. [Artwork and extraction prompts](assets/source.json)
 record the two sprites; PNG previews are excluded from firmware packs.

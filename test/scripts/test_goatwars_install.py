@@ -34,6 +34,7 @@ with open(os.environ['INSTALL_TEST_LOG'],'a') as log: log.write('mix ' + ' '.joi
 if os.environ.get('FAIL_BUILD'): sys.exit(8)
 if 'goatwars_usb.exs' in ' '.join(sys.argv):
     out=Path(sys.argv[-1]);out.mkdir(parents=True,exist_ok=True)
+    (out/'navigation.txt').write_text('On Home, press Right 2 times, then the clover key to open GoatWars.\n')
     size=300000 if os.environ.get('OVERSIZE') else 128
     for name in ['firmware.avm','assets.avm']: (out/name).write_bytes(b'#!/usr/bin/env AtomVM\n\0\0'+bytes(size))
 ''')
@@ -68,6 +69,12 @@ sys.exit(int(os.environ.get('FLASH_STATUS','0')))
         self.assertNotIn('--port', writes[0])
         self.assertNotIn('erase', writes[0])
         self.assertNotIn('0x9000', writes[0])
+
+    def test_install_reports_the_generated_home_key(self):
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("then the clover key", result.stdout)
+        self.assertNotIn("then the square key", result.stdout)
 
     def test_build_only_does_not_open_hardware(self):
         result = self.run_script('--build-only')

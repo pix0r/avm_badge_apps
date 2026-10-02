@@ -41,4 +41,5 @@ else echo "Install esptool before flashing" >&2; exit 1; fi
 echo "Close serial monitors. Writing assets and main firmware; NVS and base image are preserved."
 "${tool[@]}" --chip esp32s3 --baud 921600 --before default_reset --after hard_reset write_flash \
   0x278000 "$out/assets.avm" 0x2B8000 "$out/firmware.avm"
-echo "Installed. On Home, press Right twice, then the square key to open GoatWars."
+echo "Installed."
+cat "$out/navigation.txt"

@@ -16,12 +16,12 @@ defmodule AvmBadgeApps.UsbTest do
     module = AvmBadgeApps.UsbTest.Pages
     Badge.Store.Installed.set([])
     pages = apply(module, :all, [])
-    assert length(pages) == 13
-    assert Enum.at(pages, 11) == Badge.Page.Store
-    assert Enum.at(pages, 12) == Badge.App.Goatwars.Page
-    assert apply(module, :for_key, [:square, 2]) == Badge.App.Goatwars.Page
+    original = Badge.Pages.all()
+    assert pages == original ++ [Badge.App.Goatwars.Page]
+    assert Enum.at(pages, 15) == Badge.Page.Store
+    assert apply(module, :for_key, [:clover, 2]) == Badge.App.Goatwars.Page
     assert apply(module, :screens, []) == 3
-    page = apply(module, :for_key, [:square, 2])
+    page = apply(module, :for_key, [:clover, 2])
     state = page.init()
     assert state.match.replay == []
   end
@@ -29,6 +29,8 @@ defmodule AvmBadgeApps.UsbTest do
   test "USB packs retain startup and assets without duplicate page modules", %{dir: dir} do
     inputs = fixtures(dir)
     paths = Usb.build!(inputs, Path.join(dir, "out"))
+    assert File.read!(Path.join(dir, "out/navigation.txt")) ==
+             "On Home, press Right 2 times, then the clover key to open GoatWars.\n"
     inspected = Path.join(dir, "inspect.avm")
     # Normalize metadata flags for the legacy host archive inspector.
     original = File.read!(paths.firmware)
