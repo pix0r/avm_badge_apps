@@ -92,8 +92,9 @@ checks; its settings offer Human, AI Simple and Inactive.
 
 ## Performance diagnostics
 
-Version 0.1.5 defaults to M Square, a 23×23 bitmap board and a ticker with backpressure.
-The pen has a purple laser grid and saturated player colors. AI cruises straight
+Version 0.1.6 defaults to M Square, a 23×23 bitmap board and a ticker with backpressure.
+The pen has a slightly lighter purple background without grid lines.
+P1 uses a bright purple laser; the other player colors remain saturated. AI cruises straight
 and checks longer side lanes when forced to turn; it still attempts nearby cutoffs.
 Result screens use a smaller goat lower down, above the scores.
 Rematches preserve board size, aspect and speed; leaving and reopening restores defaults.

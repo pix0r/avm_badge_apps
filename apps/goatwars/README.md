@@ -27,7 +27,7 @@ Exit the simulator's IEx with Ctrl-C, then `a`.
 | Keys | Action |
 | --- | --- |
 | Enter, on the title | Start the countdown |
-| Left / Right | Take over gold (player 1), turn left / right |
+| Left / Right | Take over bright purple (player 1), turn left / right |
 | Z / X | Take over neon green (player 2), turn left / right |
 | 1 / 2 | Take over hot pink (player 3), turn left / right |
 | 9 / 0 | Take over violet (player 4), turn left / right |
@@ -56,10 +56,10 @@ above the score panel. The countdown shows the full board and launchers.
 Artwork is embedded as RLE-compressed sixteen-colour pixel indices (3,748
 bytes), decoded once when the page opens, and reused as RGBA binaries (46.5 KiB).
 Stars and neon scenery are display primitives. The Elixir/Goatmire palette uses a
-richer purple board with a thin purple laser grid and saturated gold, neon green,
-hot pink and violet trails. The app pack is 65,332 bytes, under the 65,536-byte
+slightly lighter purple board without grid lines and saturated bright purple,
+neon green, hot pink and violet trails. The app pack is 64,656 bytes, under the 65,536-byte
 Store limit. The matching offline USB build has
-3,576 bytes free in firmware and no free space in assets; rebuild and check both
+4,252 bytes free in firmware and no free space in assets; rebuild and check both
 sizes after changes.
 The USB pack excludes host-only Mix tasks. [Artwork and extraction prompts](assets/source.json)
 record the two sprites; PNG previews are excluded from firmware packs.
@@ -82,7 +82,7 @@ than the requested rate if gameplay or display work takes longer.
 [Performance verification](../../docs/goatwars-performance.md)
 contains benchmarks and device timing instructions.
 
-Gold starts at the bottom, green at the top, pink at the left and violet at the
+Bright purple starts at the bottom, green at the top, pink at the left and violet at the
 right, facing inward.
 The core accepts arbitrary rosters of two or more players through `Game.new/2`;
 `Match.demo/3` supplies four edge spawns and requires dimensions at least 2×2.

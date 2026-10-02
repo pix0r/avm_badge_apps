@@ -25,7 +25,7 @@ defmodule Badge.App.Goatwars.RenderTest do
   end
 
   test "complementary trail colors and a board that uses the available badge area" do
-    assert Enum.map(1..4, &Render.color/1) == [0xFFCC00, 0x00FF88, 0xFF285C, 0x7040FF]
+    assert Enum.map(1..4, &Render.color/1) == [0xC840FF, 0x00FF88, 0xFF285C, 0x7040FF]
     layout = Render.layout(Match.demo(%{width: 78, height: 46}).game.config)
     assert layout.cell == 4
     assert layout.x == 4
@@ -38,8 +38,7 @@ defmodule Badge.App.Goatwars.RenderTest do
     layout = Render.layout(game.config)
     items = Render.scene(game, layout)
 
-    assert List.last(items) == {:rect, layout.x, layout.y, 16 * layout.cell, 12 * layout.cell, 0x32104F}
-    assert Enum.any?(items, &match?({:rect, _, _, _, _, 0x7734AA}, &1))
+    assert List.last(items) == {:rect, layout.x, layout.y, 16 * layout.cell, 12 * layout.cell, 0x3D175A}
     assert Render.warning_color(game, 0) == 0x9B85AD
 
     bitmap = Board.new(game.config, occupied)
@@ -48,10 +47,6 @@ defmodule Badge.App.Goatwars.RenderTest do
     assert {:scaled_cropped_image, layout.x, layout.y, 16 * layout.cell, 12 * layout.cell, :transparent, 0, 0, layout.cell, layout.cell, [],
             {:rgba8888, 16, 12, elem(bitmap, 2)}} in bitmap_items
 
-    assert Enum.any?(bitmap_items, &match?({:rect, _, _, _, _, 0x7734AA}, &1))
-    image_index = Enum.find_index(bitmap_items, &match?({:scaled_cropped_image, _, _, _, _, _, _, _, _, _, _, _}, &1))
-    assert Enum.find_index(bitmap_items, &match?({:rect, _, _, _, _, 0x7734AA}, &1)) < image_index
-
     for {position = {column, row}, id} <- occupied do
       color = Render.color(id)
       assert {:rect, layout.x + column * layout.cell, layout.y + row * layout.cell, layout.cell, layout.cell, color} in items
@@ -59,25 +54,24 @@ defmodule Badge.App.Goatwars.RenderTest do
       assert Board.get(bitmap, position) == id
     end
 
-    assert :binary.part(elem(bitmap, 2), 0, 4) == <<50, 16, 79, 255>>
+    assert :binary.part(elem(bitmap, 2), 0, 4) == <<61, 23, 90, 255>>
   end
 
-  test "laser lines stay inside the surviving pen with a fixed drawing budget" do
+  test "empty boards have a uniform background and only four fence commands" do
     for {width, height} <- [{14, 14}, {23, 23}, {30, 30}, {46, 46}, {24, 14}, {39, 23}, {51, 30}, {78, 46}], inset <- [0, 1, 5] do
-      game = Game.compact(Match.demo(%{width: width, height: height}).game)
-      game = %{game | arena: %{game.arena | left: inset, top: inset, right: width - inset - 1, bottom: height - inset - 1}}
-      layout = Render.layout(game.config)
-      items = Render.scene(game, layout)
-      lines = for {:rect, x, y, w, h, 0x7734AA} <- items, do: {x, y, w, h}
-      assert lines != []
-      assert length(items) <= 25
+      game = Match.demo(%{width: width, height: height}).game
 
-      for {x, y, w, h} <- lines do
-        assert w == 1 or h == 1
-        assert x >= layout.x + inset * layout.cell
-        assert y >= layout.y + inset * layout.cell
-        assert x + w <= layout.x + (width - inset) * layout.cell
-        assert y + h <= layout.y + (height - inset) * layout.cell
+      game = %{
+        game
+        | players: %{},
+          occupied: %{},
+          arena: %{game.arena | left: inset, top: inset, right: width - inset - 1, bottom: height - inset - 1}
+      }
+
+      layout = Render.layout(game.config)
+
+      for board <- [game, Game.compact(game)] do
+        assert length(Render.scene(board, layout)) == 5
       end
     end
   end

@@ -70,7 +70,7 @@ defmodule Badge.App.Goatwars.TitleTest do
     assert "PLAYER 2 WINS" in labels.(winner)
     assert "BONUS 120" in labels.(winner)
     assert "DRAW" in labels.(draw)
-    assert length(Page.render(game)) <= 42
+    assert length(Page.render(game)) <= 26
     refute Enum.any?(Page.render(game), &match?({:scaled_cropped_image, _, _, _, _, _, _, _, _, _, _, {:rgba8888, 96, 64, _}}, &1))
   end
 

@@ -14,7 +14,7 @@ defmodule Badge.App.Goatwars.Board do
     case bytes do
       <<_::binary-size(offset), color::24, 255, _::binary>> ->
         case color do
-          0xFFCC00 -> 1
+          0xC840FF -> 1
           0x00FF88 -> 2
           0xFF285C -> 3
           0x7040FF -> 4
@@ -70,9 +70,9 @@ defmodule Badge.App.Goatwars.Board do
     clear_chunks(bytes, rest, offset + 4, [pixel(nil), prefix | chunks])
   end
 
-  defp pixel(1), do: <<255, 204, 0, 255>>
+  defp pixel(1), do: <<200, 64, 255, 255>>
   defp pixel(2), do: <<0, 255, 136, 255>>
   defp pixel(3), do: <<255, 40, 92, 255>>
   defp pixel(4), do: <<112, 64, 255, 255>>
-  defp pixel(nil), do: <<50, 16, 79, 255>>
+  defp pixel(nil), do: <<61, 23, 90, 255>>
 end

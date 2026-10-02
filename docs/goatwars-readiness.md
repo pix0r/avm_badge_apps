@@ -1,8 +1,26 @@
 # GoatWars hardware-free readiness
 
-Current AI/palette and square-board evidence is recorded below. Earlier
+Current palette, AI and square-board evidence is recorded below. Earlier
 optimization measurements are in [performance verification](goatwars-performance.md).
 The remaining sections record earlier readiness stages.
+
+## October 2 no-grid palette
+
+Version 0.1.6 removes grid lines from gameplay, lightens the pen background to
+`#3D175A`, and gives P1 the bright purple `#C840FF` laser. RGBA collision IDs and
+trail deletion use the updated colors. Empty pens emit exactly five commands;
+full gameplay is bounded at 26 items. The other player colors, AI behavior,
+board geometry, speed settings and artwork are unchanged.
+
+All 195 host tests and seven firmware UI integration scenarios pass, including
+the existing deterministic AI replays. The strict native audit resolves all
+runtime imports and 63 instructions in 21 modules. The Store pack is 64,656 bytes;
+USB main is 667,492/671,744 and assets are 262,144/262,144. Actual Store and split
+USB packs load and play, and 2,400 constrained-memory seeded rounds pass.
+The real C driver framebuffer confirms the uniform background and player colors.
+No hardware was accessed. Evidence is in
+`/private/tmp/beamwars-readiness/goatwars-no-grid-native` and
+[performance verification](goatwars-performance.md).
 
 ## October 2 space-efficient AI and purple grid
 

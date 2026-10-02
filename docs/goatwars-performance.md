@@ -1,6 +1,6 @@
 # GoatWars performance verification
 
-Version 0.1.5 defaults to **M Square**, 23×23 cells at 8 pixels per cell,
+Version 0.1.6 defaults to **M Square**, 23×23 cells at 8 pixels per cell,
 with a 2,116-byte opaque RGBA bitmap. Settings G cycles S/M/L/XL and A switches
 Square/Wide. Step durations remain 50–400 ms in 10 ms increments (F slower,
 V faster). Enter applies the draft; S cancels; rematches retain all choices.
@@ -16,6 +16,34 @@ The square arena gives each edge the same room. Even-sized squares alternate
 between the two central edge cells so spawns match under a 90-degree rotation.
 Rendering fits custom dimensions to 312×184 pixels; the HUD stays outside that area.
 M Square uses 65.4% fewer board bytes than the previous 51×30 default.
+
+## No-grid purple palette, October 2
+
+Version 0.1.6 removes gameplay grid lines in both map and bitmap renderers.
+The board background changes to `#3D175A`, slightly lighter than `#32104F`,
+and P1's laser changes to bright purple `#C840FF`. Player IDs still encode and
+decode consistently; single and batch trail deletion restore the new background.
+P2/P3/P4 remain green, pink and violet. White heads remain visible over the trails.
+
+The bitmap scene returns to one board image, up to four heads and four fence
+commands. Full gameplay pages emit at most 26 items, down from 42 on XL Wide.
+Empty map and bitmap pens emit exactly five items at every tested size and inset.
+No geometry, timing, AI, artwork or retained bitmap size changes.
+
+195 host tests and seven fake-hardware firmware UI scenarios pass, including
+unchanged sixteen deterministic AI replay fixtures. The strict native audit
+resolves all imports and 63 instructions in 21 modules. The Store pack is
+64,656/65,536 bytes, 676 bytes smaller than version 0.1.5. USB main is
+667,492/671,744 bytes; assets remain 262,144/262,144. Both actual Store and split
+USB packs load and play on the pinned native VM. The constrained-memory suite
+passes 2,400 seeded rounds across all eight geometries and three heap caps.
+
+The actual C driver framebuffer was sampled and inspected: the former grid
+positions now have the uniform background, P1 is bright purple, and the other
+three trail colors are preserved. Evidence and preview:
+`/private/tmp/beamwars-readiness/goatwars-no-grid-native/board.png`.
+No hardware was accessed. The grid benchmark below records version 0.1.5,
+not the current appearance.
 
 ## Space-efficient AI and purple laser grid, October 2
 

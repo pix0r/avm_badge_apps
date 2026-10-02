@@ -3,12 +3,11 @@ defmodule Badge.App.Goatwars.Render do
   alias Badge.App.Goatwars.{Arena, Game}
   alias __MODULE__.Layout
 
-  @board 0x32104F
-  @grid 0x7734AA
+  @board 0x3D175A
   @wall 0x9B85AD
   @danger 0xFF694D
 
-  def color(1), do: 0xFFCC00
+  def color(1), do: 0xC840FF
   def color(2), do: 0x00FF88
   def color(3), do: 0xFF285C
   def color(4), do: 0x7040FF
@@ -19,12 +18,11 @@ defmodule Badge.App.Goatwars.Render do
     Layout.new(div(320 - width * cell, 2), 24 + div(184 - height * cell, 2), cell)
   end
 
-  @doc "Heads and trails over a grid; the fence flashes before contraction."
+  @doc "Heads and trails; the fence flashes before contraction."
   def scene(game, layout, phase \\ nil)
 
   def scene(%{occupied: {_, _, _}} = game, layout, phase) do
     heads(game, layout) ++
-      grid(Map.fetch!(game, :arena), layout) ++
       trails(game, layout) ++ frame(Map.fetch!(game, :arena), layout, warning_color(game, phase || Map.fetch!(game, :tick)))
   end
 
@@ -34,7 +32,7 @@ defmodule Badge.App.Goatwars.Render do
     heads(game, layout) ++
       trails(game, layout) ++
       frame(Map.fetch!(game, :arena), layout, warning_color(game, phase)) ++
-      grid(Map.fetch!(game, :arena), layout) ++ [background(Map.fetch!(game, :arena), layout)]
+      [background(Map.fetch!(game, :arena), layout)]
   end
 
   def cannons(game, layout) do
@@ -113,14 +111,6 @@ defmodule Badge.App.Goatwars.Render do
       {:rect, x - 1, y, 1, h, color},
       {:rect, x + w, y, 1, h, color}
     ]
-  end
-
-  defp grid(%{left: left, right: right, top: top, bottom: bottom}, %{x: ox, y: oy, cell: cell}) do
-    w = (right - left + 1) * cell
-    h = (bottom - top + 1) * cell
-    vertical = for x <- :lists.seq(div(left + 7, 8) * 8, right, 8), do: {:rect, ox + x * cell, oy + top * cell, 1, h, @grid}
-    horizontal = for y <- :lists.seq(div(top + 7, 8) * 8, bottom, 8), do: {:rect, ox + left * cell, oy + y * cell, w, 1, @grid}
-    vertical ++ horizontal
   end
 
   defp background(arena, layout) do
