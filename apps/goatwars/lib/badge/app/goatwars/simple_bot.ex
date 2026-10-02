@@ -9,7 +9,8 @@ defmodule Badge.App.Goatwars.SimpleBot do
 
   def init(seed, options) do
     seed = rem(abs(seed), 524_287)
-    %{seed: if(seed == 312_475, do: seed + 1, else: seed), profile: Profile.new(options)}
+    %{prediction_ticks: prediction, aggression: aggression} = Profile.new(options)
+    %{seed: if(seed == 312_475, do: seed + 1, else: seed), profile: %{prediction_ticks: prediction, aggression: aggression}}
   end
 
   @doc "Prepares shared next-tick arena and opponent routes for a controller batch."

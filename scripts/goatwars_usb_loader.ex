@@ -9,6 +9,17 @@ defmodule GoatwarsUsbLoader do
     state = Badge.App.Goatwars.Page.init(countdown_ms: 0)
     {23, 23, bytes} = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :occupied)
     2116 = byte_size(bytes)
+    for started <- [true, false] do
+      input = %{state | started: started, launch_at: :erlang.monotonic_time(:millisecond) - 1}
+      :ignore = Badge.App.Goatwars.Page.handle_key({:move, :left}, input)
+      waiting = Badge.App.Goatwars.Page.tick(input)
+      0 = waiting.match.game.tick
+      receive do
+        {:goatwars_step, _, _, _, _} = message ->
+          {:ok, stepped} = Badge.App.Goatwars.Page.handle_info(message, waiting)
+          :west = stepped.match.game.players[1].direction
+      end
+    end
     middle_result = play(state, 0)
     ^middle_result = play(Badge.App.Goatwars.Page.init(countdown_ms: 0), 0)
 

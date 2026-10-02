@@ -1,5 +1,51 @@
 # GoatWars performance verification
 
+## UI overload measured on the badge, October 2
+
+The refresh correction below did not resolve physical playability. A bounded
+hardware probe reproduced the problem on the installed build: four-player steps
+could exceed 200 ms while the upstream UI keeps sending 100 ms timer messages.
+Running the calculation inside `Badge.UI` caused its mailbox to grow beyond 300
+messages, delaying input and display updates by many seconds.
+
+GoatWars now dispatches one monitored app-owned worker per due step and returns
+from `tick/1` immediately. The page accepts its result through `handle_info/2`;
+there is never more than one pending calculation. The countdown's first step
+uses the same path. Pause, settings, rematch and leaving cancel the worker;
+identity checks reject cancelled results. Steering received while a step runs
+stays buffered for the following step. No firmware source patch is involved.
+
+Two complete on-device worker runs kept the UI mailbox bounded during play:
+0–6 messages with the original controller memory and 0–7 with compact policy
+memory. Startup still briefly reached approximately 25 queued messages while
+artwork and the initial match were prepared. SimpleBot retains only its two
+used policy fields, reducing each controller memory from 34 to 16 heap words;
+its deterministic decisions are unchanged. A 4,096-word initial worker heap
+made timing worse on hardware and was removed.
+
+Four-player worker timing at tick 10 was approximately 193–216 ms; two-player
+steps were generally around 95–140 ms. These are elapsed worker times, including
+scheduling, rather than isolated CPU measurements. Completed steps often remain
+200–300 ms apart. The selected default is still 200 ms; this does not establish
+constant five-frame-per-second physical output. Human confirmation of gameplay
+feel remains necessary. Diagnostic logging now changes state only on completed
+steps, rather than forcing a draw on every UI tick.
+
+211 app tests and 18 Python checks (three optional pixel cases skipped) pass.
+The strict native audit resolves all runtime imports and 63 instructions across
+21 source modules. Actual Store and split USB images load, play and exercise
+both normal and first-step asynchronous callbacks on the pinned AtomVM. The
+runtime pack excludes the unused Input helper and Controller behaviour module;
+all runtime game imports remain present. No firmware test suite was run.
+
+The final Store pack is 64,276/65,536 bytes; USB main is 637,560/671,744 and
+assets are 262,144/262,144. Firmware source and index match the published
+`bf0cc9621b5fe9543a2c600ae43115e87fc78156` Store checkout. Temporary diagnostic
+launchers were used only for measurement and are absent from the final image.
+Evidence is under `/private/tmp/goatwars-pace/`: `device-baseline.log`,
+`device-async.log`, `device-compact.log`, `final-tests.log`, `final-python.log`
+and `final-native/`.
+
 ## Frame pacing correction, October 2
 
 The clean upstream UI ticks at 100 ms and uses `refresh/1` only to throttle
@@ -9,9 +55,9 @@ with 220 ms callback gaps showed steps 1, 3 and 5, skipping 2 and 4.
 
 The app now requests drawing within 100 ms while retaining the selected game
 step duration. The same reproduction displays steps 1 through 5. The regression
-covers four and two active players; 204 apps tests pass. Native checks load and
+covers four and two active players; 204 apps tests passed at that revision. Native checks load and
 play the actual game and split USB archives with the unchanged upstream firmware.
-Physical frame pacing still needs confirmation on the badge.
+This was insufficient on the physical badge; the overload fix above follows it.
 
 ## Default pace, October 2
 
@@ -29,9 +75,8 @@ The final USB build uses unmodified published Store firmware
 `mwingert/avm_badge`, `feature/add-app-store-rebased`, at `bf0cc96`. The local
 cadence and firmware test fixes are excluded. Its UI ticker remains 100 ms;
 sub-100 ms game settings do not imply an equally fast display cadence.
-The current game pack is 65,532/65,536 bytes. USB main is 638,816/671,744
-bytes and assets are 262,144/262,144 bytes. The four-byte game-pack margin is small;
-further source changes need another size check.
+That revision’s game pack was 65,532/65,536 bytes; USB main was 638,816/671,744
+and assets were 262,144/262,144. Current sizes are recorded above.
 
 Version 0.1.6 defaults to **M Square**, 23×23 cells at 8 pixels per cell,
 with a 2,116-byte opaque RGBA bitmap. Settings G cycles S/M/L/XL and A switches

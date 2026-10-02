@@ -1,12 +1,14 @@
 [out, firmware, source, build, boot] = System.argv()
 Code.require_file(Path.join(firmware, "deps/exatomvm/lib/packbeam.ex"))
 beams = Path.wildcard(Path.join(out, "beams/*.beam"))
+Code.require_file(Path.expand("../lib/avm_badge_apps/pack.ex", __DIR__))
 
 apps =
   Enum.filter(beams, &(Path.basename(&1) |> String.starts_with?("Elixir.Badge.App.Goatwars.")))
 
 expected = Path.wildcard(Path.expand("../apps/goatwars/lib/**/*.ex", __DIR__))
 if length(apps) != length(expected), do: raise("expected all #{length(expected)} game modules")
+apps = AvmBadgeApps.Pack.beams!(Path.join(out, "beams"), "goatwars")
 pack = Path.join(out, "goatwars.avm")
 :ok = ExAtomVM.PackBEAM.make_avm(Enum.map(apps, &{&1, :beam}), pack)
 size = File.stat!(pack).size

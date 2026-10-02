@@ -39,7 +39,10 @@ defmodule AvmBadgeApps.Pack do
 
     (prefix <> "Page.beam") in beams || Mix.raise("app #{id} has no #{String.trim_leading(prefix, "Elixir.")}Page module")
 
-    beams |> Enum.sort() |> Enum.map(&Path.join(ebin, &1))
+    beams
+    |> Enum.reject(fn name -> id == "goatwars" and name in [prefix <> "Input.beam", prefix <> "Controller.beam"] end)
+    |> Enum.sort()
+    |> Enum.map(&Path.join(ebin, &1))
   end
 
   @doc "Raises when `ebin` holds a module outside every app's namespace."

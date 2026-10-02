@@ -5,13 +5,18 @@ defmodule GoatwarsPackReadinessTest do
   test "the complete GoatWars pack fits the badge and uses its namespace only" do
     beams = Pack.beams!(Mix.Project.compile_path(), "goatwars")
 
+    packed_modules = Enum.map(beams, fn beam -> Keyword.fetch!(:beam_lib.info(String.to_charlist(beam)), :module) end)
+
     for beam <- beams do
       {:ok, {_, [{:imports, imports}]}} = :beam_lib.chunks(String.to_charlist(beam), [:imports])
       refute Enum.any?(imports, fn {module, _, _} -> module == :elixir_erl_pass end)
+      for {module, _, _} <- imports, String.starts_with?(Atom.to_string(module), "Elixir.Badge.App.Goatwars.") do
+        assert module in packed_modules
+      end
     end
 
     sources = Path.wildcard("apps/goatwars/lib/**/*.ex")
-    assert length(beams) == length(sources)
+    assert length(beams) == length(sources) - 2
     path = Path.join(System.tmp_dir!(), "goatwars_pack_#{System.unique_integer([:positive])}.avm")
     on_exit(fn -> File.rm(path) end)
     assert :ok = ExAtomVM.PackBEAM.make_avm(Enum.map(beams, &{&1, :beam}), path)

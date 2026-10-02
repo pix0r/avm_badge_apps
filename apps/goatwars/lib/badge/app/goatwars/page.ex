@@ -2,7 +2,7 @@ defmodule Badge.App.Goatwars.Page do
   @moduledoc """
   GoatWars badge adapter. S opens player settings; Space pauses; R rematches.
 
-  Keys and ticks share the UI process; steering is buffered there until a step is due.
+  Steering is buffered in the UI; game steps finish through an app-owned worker.
   """
   use Badge.Page
   alias Badge.App.Goatwars.{Art, Game, Match, Render, Setup, SimpleBot}
@@ -103,6 +103,12 @@ defmodule Badge.App.Goatwars.Page do
   @impl true
   def leave(%{input_ref: ref}) do
     :erlang.erase(ref)
+    case :erlang.erase({:goatwars_work, ref}) do
+      {worker, monitor} ->
+        :erlang.exit(worker, :kill)
+        :erlang.demonitor(monitor, [:flush])
+      :undefined -> :ok
+    end
     :ok
   end
   def leave(_state), do: :ok
@@ -170,23 +176,68 @@ defmodule Badge.App.Goatwars.Page do
   defp settings_key(_, _), do: :ignore
 
   @impl true
-  def tick(%{benchmark: true} = state) do
-    started = :erlang.monotonic_time(:microsecond)
-    next = advance(state, :erlang.monotonic_time(:millisecond))
-    elapsed = :erlang.monotonic_time(:microsecond) - started
-    previous = Map.fetch!(state, :bench_previous)
+  def tick(state), do: badge_advance(state, :erlang.monotonic_time(:millisecond))
 
-    if previous != nil and checkpoint?(next) do
-      :io.format(
-        ~c"GW_DEVICE mode=~s tick=~p phase=tick cpu_us=~p frame_gap_us=~p~n",
-        [mode(next), round_tick(next), elapsed, started - previous]
-      )
-    end
-
-    %{next | bench_previous: started}
+  defp badge_advance(%{screen: :game, started: false, paused: false} = state, now) do
+    state = launch(state, now)
+    if Map.fetch!(state, :launch_remaining) == 0, do: badge_advance(%{state | started: true}, now), else: state
   end
 
-  def tick(state), do: advance(state, :erlang.monotonic_time(:millisecond))
+  defp badge_advance(%{screen: :game, started: true, paused: false, result_until: nil, due_at: due, input_ref: ref} = state, now)
+       when due == nil or now >= due do
+    case :erlang.get({:goatwars_work, ref}) do
+      :undefined ->
+        parent = self()
+        turns = :erlang.erase(ref)
+        options = if :erlang.system_info(:machine) == ~c"BEAM", do: [:monitor], else: [:monitor, {:atomvm_heap_growth, :fibonacci}]
+        job = :erlang.spawn_opt(fn ->
+          if turns != :undefined, do: :erlang.put(ref, turns)
+          started = :erlang.monotonic_time(:microsecond)
+          next = advance(state, now)
+          elapsed = :erlang.monotonic_time(:microsecond) - started
+          send(parent, {:goatwars_step, ref, self(), next, elapsed})
+        end, options)
+        :erlang.put({:goatwars_work, ref}, job)
+        state
+      _running -> state
+    end
+  end
+
+  defp badge_advance(state, now), do: advance(state, now)
+
+  @impl true
+  def handle_info({:goatwars_step, ref, worker, next, elapsed}, %{input_ref: ref} = state) do
+    case :erlang.get({:goatwars_work, ref}) do
+      {^worker, monitor} ->
+        :erlang.erase({:goatwars_work, ref})
+        :erlang.demonitor(monitor, [:flush])
+        {:ok, measured_step(state, next, elapsed)}
+      _stale -> :ignore
+    end
+  end
+
+  def handle_info({:DOWN, monitor, :process, worker, reason}, %{input_ref: ref}) when reason != :normal do
+    case :erlang.get({:goatwars_work, ref}) do
+      {^worker, ^monitor} ->
+        :erlang.erase({:goatwars_work, ref})
+        :erlang.error(reason)
+      _stale -> :ignore
+    end
+  end
+
+  def handle_info(_message, _state), do: :ignore
+
+  defp measured_step(%{benchmark: false}, next, _elapsed), do: %{next | benchmark: false, bench_previous: nil}
+
+  defp measured_step(%{bench_previous: previous}, next, elapsed) do
+    now = :erlang.monotonic_time(:microsecond)
+    if previous != nil and checkpoint?(next) do
+      :io.format(~c"GW_DEVICE mode=~s tick=~p phase=tick cpu_us=~p frame_gap_us=~p~n",
+        [mode(next), round_tick(next), elapsed, now - previous])
+    end
+    %{next | benchmark: true, bench_previous: now}
+  end
+
   @impl true
   def refresh(%{screen: :loading}), do: 0
   def refresh(state), do: min(tick_interval(state), 100)
@@ -204,10 +255,8 @@ defmodule Badge.App.Goatwars.Page do
   def advance(%{paused: true} = state, _now), do: state
 
   def advance(%{started: false} = state, now) do
-    deadline = Map.fetch!(state, :launch_at) || now + Map.fetch!(state, :launch_remaining)
-    remaining = max(deadline - now, 0)
-    state = %{state | launch_at: deadline, launch_remaining: remaining, frame: Map.fetch!(state, :frame) + 1}
-    if remaining == 0, do: advance(%{state | started: true}, now), else: state
+    state = launch(state, now)
+    if Map.fetch!(state, :launch_remaining) == 0, do: advance(%{state | started: true}, now), else: state
   end
 
   def advance(%{result_until: deadline} = state, now) when is_integer(deadline) do
@@ -274,6 +323,11 @@ defmodule Badge.App.Goatwars.Page do
     do: [%{effect | age: age + 1} | age_effects(rest)]
 
   defp age_effects([_ | rest]), do: age_effects(rest)
+
+  defp launch(state, now) do
+    deadline = Map.fetch!(state, :launch_at) || now + Map.fetch!(state, :launch_remaining)
+    %{state | launch_at: deadline, launch_remaining: max(deadline - now, 0), frame: Map.fetch!(state, :frame) + 1}
+  end
 
   defp restart(
          %{

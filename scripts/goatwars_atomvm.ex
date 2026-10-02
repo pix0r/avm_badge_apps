@@ -12,6 +12,20 @@ defmodule GoatwarsReadiness do
       2 = Page.advance(next, 399).match.game.tick
       3 = Page.advance(next, 400).match.game.tick
     end
+    for started <- [true, false] do
+      input = %{Page.init(countdown_ms: 0) | started: started, launch_at: :erlang.monotonic_time(:millisecond) - 1}
+      :ignore = Page.handle_key({:move, :left}, input)
+      waiting = Page.tick(input)
+      0 = waiting.match.game.tick
+      stepped = receive do
+        {:goatwars_step, _, _, _, _} = message ->
+          {:ok, next} = Page.handle_info(message, waiting)
+          next
+      end
+      1 = stepped.match.game.tick
+      :west = stepped.match.game.players[1].direction
+      :undefined = :erlang.get(input.input_ref)
+    end
     rounds(1)
     state = Page.init()
     :loading = Map.fetch!(state, :screen)

@@ -88,8 +88,10 @@ manifest are not changed by building these images.
    corruption. Include what you pressed and how long it had been running.
 
 On October 2, 2026, an earlier USB build was flashed and the user confirmed that
-GoatWars displays and responds correctly. The current clean-upstream build has
-been verified on the native VM; it still needs a physical device check. The bounded boot log showed Home,
+GoatWars displays and responds correctly. The current clean-upstream game worker was measured on the device: during play
+the UI mailbox stayed at 0–7 messages, compared with more than 300 before.
+The final normal USB build also passes the native VM checks. Human confirmation
+of the new gameplay feel remains necessary. The bounded boot log showed Home,
 Wi-Fi reconnection and clock synchronization. Store opens; its online catalog
 was not verified because the network was poor.
 Host/native checks passed, including actual Store-pack and split USB-image
@@ -106,7 +108,8 @@ checks; its settings offer Human, AI Simple and Inactive.
 
 ## Performance diagnostics
 
-Version 0.1.6 defaults to M Square, a 23×23 bitmap board and a ticker with backpressure.
+Version 0.1.6 defaults to M Square, a 23×23 bitmap board. Game steps use one
+asynchronous worker at a time so calculations do not block the upstream UI ticker.
 The pen has a slightly lighter purple background without grid lines.
 P1 uses a bright purple laser; the other player colors remain saturated. AI cruises straight
 and checks longer side lanes when forced to turn; it still attempts nearby cutoffs.

@@ -17,6 +17,105 @@ defmodule Badge.App.Goatwars.PageTest do
     end
   end
 
+  defmodule ObservedController do
+    def choose(_game, _id, observer) do
+      send(observer, {:decision_process, self()})
+      {nil, observer}
+    end
+  end
+
+  defmodule BlockedController do
+    def choose(_game, _id, observer) do
+      send(observer, {:blocked_decision, self()})
+      receive do
+        :continue -> {nil, observer}
+      end
+    end
+  end
+
+  test "badge ticks return before a slow decision finishes" do
+    observer = self()
+    for started <- [true, false] do
+      ui = spawn(fn ->
+        state = %{Page.init(countdown_ms: 0) | started: started, launch_at: :erlang.monotonic_time(:millisecond) - 1}
+        controllers = Map.put(state.match.controllers, 2, {BlockedController, observer})
+        state = %{state | match: %{state.match | controllers: controllers}}
+        returned = Page.tick(state)
+        send(observer, {:tick_returned, returned.match.game.tick})
+        receive do
+          :stop -> Page.leave(state)
+        end
+      end)
+      assert_receive {:blocked_decision, worker}
+      try do
+        assert_receive {:tick_returned, 0}, 100
+      after
+        send(worker, :continue)
+        send(ui, :stop)
+      end
+    end
+  end
+
+  test "badge ticks compute decisions outside the UI process and retain buffered steering" do
+    state = Page.init(countdown_ms: 0)
+    controllers = Map.put(state.match.controllers, 2, {ObservedController, self()})
+    state = %{state | match: %{state.match | controllers: controllers}}
+    assert Page.handle_key({:move, :left}, state) == :ignore
+    assert Page.tick(state) == state
+    assert_receive {:decision_process, worker}
+    refute worker == self()
+    assert_receive {:goatwars_step, _, ^worker, _, _} = message
+    {:ok, next} = Page.handle_info(message, state)
+    assert next.match.game.players[1].direction == :west
+    assert next.match.controllers[1] == :human
+    assert :erlang.get(state.input_ref) == :undefined
+    monitor = Process.monitor(worker)
+    assert_receive {:DOWN, ^monitor, :process, ^worker, _}
+    assert :erlang.get({:goatwars_work, state.input_ref}) == :undefined
+  end
+
+  test "pausing rejects an already completed step from the cancelled worker" do
+    state = Page.init(countdown_ms: 0)
+    assert Page.tick(state) == state
+    assert_receive {:goatwars_step, _, _, _, _} = message
+    {:ok, paused} = Page.handle_key({:char, 32}, state)
+    assert Page.handle_info(message, paused) == :ignore
+    assert paused.match.game.tick == 0
+    assert :erlang.get({:goatwars_work, state.input_ref}) == :undefined
+  end
+
+  test "a pending step cannot overlap and leaving stops its worker" do
+    state = Page.init(countdown_ms: 0)
+    controllers = Map.put(state.match.controllers, 2, {BlockedController, self()})
+    state = %{state | match: %{state.match | controllers: controllers}}
+    assert Page.tick(state) == state
+    assert_receive {:blocked_decision, worker}
+    assert Page.tick(state) == state
+    refute_receive {:blocked_decision, _}
+    monitor = Process.monitor(worker)
+    assert Page.leave(state) == :ok
+    assert_receive {:DOWN, ^monitor, :process, ^worker, :killed}
+    assert :erlang.get({:goatwars_work, state.input_ref}) == :undefined
+  end
+
+  test "new steering and diagnostic choices survive an in-flight step" do
+    state = Page.init(countdown_ms: 0)
+    assert Page.tick(state) == state
+    assert Page.handle_key({:move, :right}, state) == :ignore
+    {:ok, logging} = Page.handle_key({:char, ?t}, state)
+    assert_receive {:goatwars_step, _, _, _, _} = message
+    {:ok, next} = Page.handle_info(message, logging)
+    assert next.benchmark
+    assert :erlang.get(state.input_ref) == %{1 => :right}
+    next = %{next | due_at: nil}
+    assert Page.tick(next) == next
+    assert_receive {:goatwars_step, _, _, _, _} = message
+    {:ok, steered} = Page.handle_info(message, next)
+    assert steered.match.controllers[1] == :human
+    assert :erlang.get(state.input_ref) == :undefined
+    Page.leave(steered)
+  end
+
   test "due game steps request a frame on the upstream 100 ms UI tick" do
     for profiles <- [%{}, %{3 => :inactive, 4 => :inactive}] do
       Enum.reduce([0, 220, 440, 660, 880], Page.init(countdown_ms: 0, profiles: profiles), fn now, state ->
@@ -326,7 +425,7 @@ defmodule Badge.App.Goatwars.PageTest do
 
     assert state.match.game.config.step_ms == 200
     {_, pilot} = state.match.controllers[1]
-    assert pilot.profile.reaction_ticks == 5
+    assert pilot.profile == %{prediction_ticks: 3, aggression: 1}
     {:ok, restarted} = Page.handle_key({:char, ?r}, state)
     {_, next_pilot} = restarted.match.controllers[1]
     assert next_pilot.profile == pilot.profile

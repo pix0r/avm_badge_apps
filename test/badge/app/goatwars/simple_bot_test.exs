@@ -2,6 +2,15 @@ defmodule Badge.App.Goatwars.SimpleBotTest do
   use ExUnit.Case, async: true
   alias Badge.App.Goatwars.{Arena, Board, Game, Player, SimpleBot}
 
+  test "controller memory keeps only the small policy needed on every frame" do
+    for profile <- [:beginner, :intermediate, :expert, :pro] do
+      memory = SimpleBot.init(1, profile)
+      assert :erts_debug.flat_size(memory) <= 16
+      {_, next} = SimpleBot.choose(game(), 1, memory)
+      assert :erts_debug.flat_size(next) <= 16
+    end
+  end
+
   test "keeps heading when the next cell is clear" do
     game = game()
     memory = SimpleBot.init(1, :pro)

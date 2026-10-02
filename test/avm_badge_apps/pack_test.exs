@@ -12,6 +12,18 @@ defmodule AvmBadgeApps.PackTest do
 
   @meta %{name: "Demo", author: "Ann", description: "A demo", version: "1.0.0", storage: "ram", category: "games"}
 
+  test "GoatWars runtime packs omit unused host input and behaviour helpers" do
+    dir = Path.join(System.tmp_dir!(), "goatwars-selection-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+    for module <- ["Controller", "Input", "Page", "SimpleBot"] do
+      File.write!(Path.join(dir, "Elixir.Badge.App.Goatwars.#{module}.beam"), "fixture")
+    end
+    assert Enum.map(Pack.beams!(dir, "goatwars"), &Path.basename/1) == [
+      "Elixir.Badge.App.Goatwars.Page.beam", "Elixir.Badge.App.Goatwars.SimpleBot.beam"
+    ]
+  end
+
   test "metadata must fit the manifest limits" do
     assert Pack.validate_meta!("demo", @meta) == @meta
     assert_raise Mix.Error, fn -> Pack.validate_meta!("Demo", @meta) end
