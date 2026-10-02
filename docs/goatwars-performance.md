@@ -1,5 +1,33 @@
 # GoatWars performance verification
 
+## October 2 baseline pace
+
+Badge play now defaults to 200 ms per step (five steps per second), down from
+100 ms (ten). This gives four-player work twice the time per step and limits
+lighter two-player play to the same requested pace. Settings retain 10 ms F/V
+adjustments over 50–400 ms; rematches retain the selected speed. Explicit core
+rules and headless benchmarks keep their existing 100 ms default.
+
+A failing-first clock test covers four and two active slots, deadlines just
+before each step, and rematches. The badge readiness runner checks those same
+200 ms boundaries on native AtomVM. The existing fine-speed tests still cover
+50 ms and custom speeds.
+
+On the pinned native ARM64 interpreter, the same early-game advance/render
+fixture takes 299 µs with four players and 187 µs with two on the 51×30 board
+(1.60×). Four separate bitmap writes were tested against a batch write; batching
+measured 301 µs and was discarded. These measurements exclude firmware services,
+panel transfer and ESP32 scheduling; they do not explain or reproduce the
+reported several-fold physical slowdown. No board was connected for this pass.
+
+The game pack is 62,348 bytes. The offline USB image fits at 636,824 / 671,744
+bytes for firmware and 262,144 / 262,144 for assets, and both actual packs load
+and play on native AtomVM. The 117 GoatWars tests, six real-UI integration
+tests, 1,590 firmware tests (two asset cases excluded), and strict game audit
+pass. After removing the firmware home-grid test, the complete paired apps
+suite passes all 180 tests. Evidence is in `/private/tmp/goatwars-pace`.
+
+
 The latest October 1 build defaults to a 51×30 board with 6-pixel cells and a
 fixed 6,120-byte RGBA bitmap. In settings, G cycles 24×14, 51×30 and 78×46;
 F adds 10 ms and V subtracts 10 ms per step, within 50–400 ms. Enter applies both choices, S cancels,

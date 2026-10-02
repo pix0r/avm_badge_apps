@@ -1,8 +1,13 @@
 defmodule Badge.App.Goatwars.Page do
-  @moduledoc "GoatWars badge adapter. S opens player settings; Space pauses; R rematches."
+  @moduledoc """
+  GoatWars badge adapter. S opens player settings; Space pauses; R rematches.
+
+  Keys and ticks run in the same UI process; steering is buffered there until a step is due.
+  """
   use Badge.Page
   alias Badge.App.Goatwars.{Art, Game, Match, Render, Setup, SimpleBot}
   alias __MODULE__.State
+  @input_key {__MODULE__, :steering}
 
   @impl true
   def title, do: "GoatWars"
@@ -11,7 +16,7 @@ defmodule Badge.App.Goatwars.Page do
   @impl true
   def init(options \\ []) do
     rules =
-      Keyword.get(options, :rules, %{width: 51, height: 30, explosion_radius: 2, retract_speed: 8})
+      Keyword.get(options, :rules, %{width: 51, height: 30, step_ms: 200, explosion_radius: 2, retract_speed: 8})
 
     setup = Setup.new(Keyword.get(options, :profiles, %{}))
     seed = Keyword.get(options, :seed, 1)
@@ -52,12 +57,15 @@ defmodule Badge.App.Goatwars.Page do
 
   def handle_key({:char, ?s}, state), do: open_settings(state)
 
-  def handle_key({:char, 32}, state),
-    do: {:ok, %{state | paused: not Map.fetch!(state, :paused), due_at: nil, launch_at: nil}}
+  def handle_key({:char, 32}, state) do
+    clear_input()
+    {:ok, %{state | paused: not Map.fetch!(state, :paused), due_at: nil, launch_at: nil}}
+  end
 
   def handle_key({:char, char}, state) when char == ?r or char == ?R, do: {:ok, restart(state)}
 
   def handle_key({:char, char}, state) when char == ?b or char == ?B do
+    clear_input()
     match =
       Enum.reduce(Map.keys(Map.fetch!(Map.fetch!(state, :match), :controllers)), Map.fetch!(state, :match), fn id, match ->
         Match.control(match, id, {SimpleBot, SimpleBot.init(Map.fetch!(state, :round) * 31 + id * 13)})
@@ -69,15 +77,50 @@ defmodule Badge.App.Goatwars.Page do
     {:ok, %{state | match: match, setup: setup}}
   end
 
+  def handle_key(_event, %{paused: true}), do: :ignore
+  def handle_key(_event, %{result_until: deadline}) when is_integer(deadline), do: :ignore
+
   def handle_key(event, state) do
     case Setup.binding(Map.fetch!(state, :setup), event) do
       {id, turn} ->
-        match = Map.fetch!(state, :match) |> Match.control(id, :human) |> Match.command(id, turn)
-        {:ok, %{state | match: match, setup: Setup.mode(Map.fetch!(state, :setup), id, :human)}}
+        ref = Map.fetch!(state, :input_ref)
+
+        turns =
+          case :erlang.get(@input_key) do
+            {^ref, turns} -> turns
+            _ -> %{}
+          end
+
+        :erlang.put(@input_key, {ref, Map.put(turns, id, turn)})
+        :ignore
 
       nil ->
         :ignore
     end
+  end
+
+  @impl true
+  def leave(_state), do: clear_input()
+
+  defp clear_input do
+    :erlang.erase(@input_key)
+    :ok
+  end
+
+  defp apply_input(state) do
+    ref = Map.fetch!(state, :input_ref)
+
+    case :erlang.erase(@input_key) do
+      {^ref, turns} -> apply_turns(:maps.to_list(turns), state)
+      _ -> state
+    end
+  end
+
+  defp apply_turns([], state), do: state
+
+  defp apply_turns([{id, turn} | rest], state) do
+    match = Map.fetch!(state, :match) |> Match.control(id, :human) |> Match.command(id, turn)
+    apply_turns(rest, %{state | match: match, setup: Setup.mode(Map.fetch!(state, :setup), id, :human)})
   end
 
   defp title_key(:enter, state), do: {:ok, %{state | screen: :game}}
@@ -86,8 +129,10 @@ defmodule Badge.App.Goatwars.Page do
   defp title_key({:char, ?s}, state), do: open_settings(state)
   defp title_key(_, _), do: :ignore
 
-  defp open_settings(state),
-    do: {:ok, %{state | screen: :settings, settings_from: Map.fetch!(state, :screen), draft: Map.fetch!(state, :setup)}}
+  defp open_settings(state) do
+    clear_input()
+    {:ok, %{state | screen: :settings, settings_from: Map.fetch!(state, :screen), draft: Map.fetch!(state, :setup)}}
+  end
 
   defp settings_key({:move, :up}, state),
     do: {:ok, %{state | selected: max(Map.fetch!(state, :selected) - 1, 1)}}
@@ -181,6 +226,7 @@ defmodule Badge.App.Goatwars.Page do
   def advance(state, now) when is_integer(state.due_at) and now < state.due_at, do: state
 
   def advance(state, now) do
+    state = apply_input(state)
     match = Match.tick(Map.fetch!(state, :match))
 
     scores =
@@ -226,6 +272,7 @@ defmodule Badge.App.Goatwars.Page do
   defp age_effects([_ | rest]), do: age_effects(rest)
 
   defp restart(%{setup: %{board: {width, height}}} = state) do
+    clear_input()
     previous = Map.fetch!(Map.fetch!(Map.fetch!(state, :match), :game), :config)
 
     shrink_after =
@@ -257,6 +304,7 @@ defmodule Badge.App.Goatwars.Page do
     %{
       state
       | match: match,
+        input_ref: :erlang.make_ref(),
         layout: Render.layout(Map.fetch!(Map.fetch!(match, :game), :config)),
         round: Map.fetch!(state, :round) + 1,
         result_until: nil,

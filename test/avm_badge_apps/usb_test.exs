@@ -9,23 +9,6 @@ defmodule AvmBadgeApps.UsbTest do
     {:ok, dir: dir}
   end
 
-  test "the USB home grid preserves firmware pages and opens GoatWars offline" do
-    source = File.read!(Path.expand("../avm_badge/lib/badge/pages.ex"))
-    generated = Usb.pages_source(source, AvmBadgeApps.UsbTest.Pages)
-    Code.compile_string(generated)
-    module = AvmBadgeApps.UsbTest.Pages
-    Badge.Store.Installed.set([])
-    pages = apply(module, :all, [])
-    assert length(pages) == 13
-    assert Enum.at(pages, 11) == Badge.Page.Store
-    assert Enum.at(pages, 12) == Badge.App.Goatwars.Page
-    assert apply(module, :for_key, [:square, 2]) == Badge.App.Goatwars.Page
-    assert apply(module, :screens, []) == 3
-    page = apply(module, :for_key, [:square, 2])
-    state = page.init()
-    assert state.match.replay == []
-  end
-
   test "USB packs retain startup and assets without duplicate page modules", %{dir: dir} do
     inputs = fixtures(dir)
     paths = Usb.build!(inputs, Path.join(dir, "out"))

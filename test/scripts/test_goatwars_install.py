@@ -33,6 +33,8 @@ from pathlib import Path
 with open(os.environ['INSTALL_TEST_LOG'],'a') as log: log.write('mix ' + ' '.join(sys.argv[1:]) + '\n')
 if os.environ.get('FAIL_BUILD'): sys.exit(8)
 if 'goatwars_usb.exs' in ' '.join(sys.argv):
+    if os.environ.get('REQUIRE_FIRMWARE_PROJECT') and Path.cwd() != Path(os.environ['AVM_BADGE_PATH']).resolve():
+        sys.exit(9)
     out=Path(sys.argv[-1]);out.mkdir(parents=True,exist_ok=True)
     size=300000 if os.environ.get('OVERSIZE') else 128
     for name in ['firmware.avm','assets.avm']: (out/name).write_bytes(b'#!/usr/bin/env AtomVM\n\0\0'+bytes(size))
@@ -70,6 +72,12 @@ sys.exit(int(os.environ.get('FLASH_STATUS','0')))
         self.assertNotIn('0x9000', writes[0])
 
     def test_build_only_does_not_open_hardware(self):
+        result = self.run_script('--build-only')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('esptool ', self.commands())
+
+    def test_usb_build_uses_the_selected_firmware_project(self):
+        self.env['REQUIRE_FIRMWARE_PROJECT'] = '1'
         result = self.run_script('--build-only')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn('esptool ', self.commands())

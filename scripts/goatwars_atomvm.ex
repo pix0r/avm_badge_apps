@@ -1,7 +1,16 @@
 defmodule GoatwarsReadiness do
-  alias Badge.App.Goatwars.{Page, Match}
+  alias Badge.App.Goatwars.{Page, Match, Game}
 
   def start do
+    for profiles <- [%{}, %{3 => :inactive, 4 => :inactive}] do
+      page = Page.init(countdown_ms: 0, profiles: profiles) |> Page.advance(0)
+      200 = Page.tick_interval(page)
+      1 = Page.advance(page, 199).match.game.tick
+      next = Page.advance(page, 200)
+      2 = next.match.game.tick
+      2 = Page.advance(next, 399).match.game.tick
+      3 = Page.advance(next, 400).match.game.tick
+    end
     rounds(1)
     state = Page.init()
     :title = Map.fetch!(state, :screen)
@@ -21,23 +30,44 @@ defmodule GoatwarsReadiness do
     {:ok, settings} = Page.handle_key({:char, ?f}, settings)
     {:ok, restarted} = Page.handle_key({:edit, :newline}, settings)
     false = restarted.started
-    110 = restarted.match.game.config.step_ms
+    210 = restarted.match.game.config.step_ms
     restarted = restarted |> Page.advance(0) |> Page.advance(3000)
-    110 = Page.tick_interval(restarted)
-    1 = Page.advance(restarted, 3109).match.game.tick
-    2 = Page.advance(restarted, 3110).match.game.tick
+    210 = Page.tick_interval(restarted)
+    1 = Page.advance(restarted, 3209).match.game.tick
+    2 = Page.advance(restarted, 3210).match.game.tick
 
     controls =
       Enum.reduce([{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}], Page.init(countdown_ms: 0), fn event, page ->
-        {:ok, next} = Page.handle_key(event, page)
-        next
+        :ignore = Page.handle_key(event, page)
+        page
       end)
 
+    controls = Page.advance(controls, 0)
     %{1 => :human, 2 => :human, 3 => :human, 4 => :human} = controls.match.controllers
-    %{1 => :left, 2 => :left, 3 => :left, 4 => :left} = controls.match.pending
+    %{} = controls.match.pending
+    :west = controls.match.game.players[1].direction
+    wall_turn()
     true = length(Page.render(restarted)) > 0
     :io.format(~c"GoatWars readiness passed~n")
     :ok
+  end
+
+  defp wall_turn do
+    page = Page.init(countdown_ms: 0)
+    {:ok, game} = Game.new(page.match.game.config, [
+      %{id: 1, position: {0, 10}, direction: :west},
+      %{id: 2, position: {25, 10}, direction: :east}
+    ])
+    match = Match.new(Game.compact(game), %{1 => :human, 2 => :human})
+    false = Match.tick(match).game.players[1].alive
+    page = %{page | match: match}
+    :ignore = Page.handle_key({:move, :left}, page)
+    next = Page.advance(page, 0)
+    true = next.match.game.players[1].alive
+    {0, 11} = next.match.game.players[1].position
+    :south = next.match.game.players[1].direction
+    :south = Page.advance(next, 100).match.game.players[1].direction
+    :ok = Page.leave(next)
   end
 
   defp rounds(21), do: :ok

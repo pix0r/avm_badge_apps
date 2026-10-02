@@ -4,6 +4,41 @@ A four-goat trail game inspired by Steve Crutchfield's Macintosh lightcycle game
 The pure Elixir engine runs without a badge, display, network, clock, or processes.
 The browser uses the real badge page API through the sibling firmware's simulator.
 
+## Architecture
+
+- **Runtime:** Elixir runs on AtomVM on the ESP32-S3. The firmware's
+  [`Badge.UI`][ui] GenServer owns the [page state](lib/badge/app/goatwars/page.ex#L12) and calls `Page.handle_key/2`,
+  `tick/1` and `render/1`; GoatWars has no separate game process.
+- **Title and other screens:** [`Page.render/1`](lib/badge/app/goatwars/page.ex#L283) selects title, countdown, gameplay,
+  pause and results. [`Art.load/0`](lib/badge/app/goatwars/art.ex#L171) decodes embedded RLE pixel art once on entry;
+  [`Render.Interstitial`](lib/badge/app/goatwars/render/interstitial.ex#L30) combines it with text and rectangle scenery.
+- **Gameplay:** [`Match.tick/1`](lib/badge/app/goatwars/match.ex#L85) gathers queued human turns and [`SimpleBot`](lib/badge/app/goatwars/simple_bot.ex) decisions,
+  then calls the pure [`Game.step/2`](lib/badge/app/goatwars/game.ex#L38) for simultaneous movement, collisions,
+  explosions, trail retraction and arena shrinking. `Match` tracks round
+  points and bonus; `Page` handles timing, rematches and cumulative scores.
+- **Drawing:** AtomGL is the badge's 2D display-list renderer; GoatWars uses
+  no OpenGL/WebGL API or shaders. [`Board`](lib/badge/app/goatwars/board.ex#L4) stores one RGBA pixel per cell.
+  [`Render.scene/3`](lib/badge/app/goatwars/render.ex#L25) returns a scaled board image plus head/border rectangles;
+  [`Page.hud/1`](lib/badge/app/goatwars/page.ex#L329) adds scores and labels. `Badge.UI` adds chrome and
+  [sends the list to the native display port][display] for a full ST7789 repaint over SPI.
+  Items paint tail-to-head: the first item is on top.
+- **Scaling:** [`Render.layout/1`](lib/badge/app/goatwars/render.ex#L17) centres the board in a 312×184-pixel area,
+  using `max(1, min(312 ÷ width, 184 ÷ height))` with integer division.
+  The 51×30 preset therefore uses 6×6-pixel cells (306×180 pixels).
+  [`scaled_cropped_image`](lib/badge/app/goatwars/render.ex#L72) crops to the surviving arena and scales each source pixel by that cell size;
+  [title/goat artwork](lib/badge/app/goatwars/render/interstitial.ex#L51) uses a fixed 2× scale.
+- **Settings:** [`Setup`](lib/badge/app/goatwars/setup.ex#L8) holds player modes, key bindings, board size, speed
+  and retraction. The [settings handlers](lib/badge/app/goatwars/page.ex#L91) edit a draft while play stops;
+  Enter applies it to a new round and S discards it. Settings live in memory.
+- **Browser and tests:** The same Elixir page runs on BEAM with fake hardware;
+  Phoenix LiveView sends display items to [Canvas 2D][canvas] and keys back to
+  `Badge.UI`. `drawImage` reproduces cropping/scaling with smoothing disabled;
+  CSS displays the 320×240 canvas at 2× size. [Headless tests](../../scripts/goatwars_test.exs) drive `Match` and `Game` directly.
+
+[ui]: https://github.com/mwingert/avm_badge/blob/cb019046f4acba55c0301ff86809b67bcdc87b3b/lib/badge/ui.ex#L422
+[display]: https://github.com/mwingert/avm_badge/blob/cb019046f4acba55c0301ff86809b67bcdc87b3b/lib/badge/display/atom_gl.ex#L12
+[canvas]: https://github.com/mwingert/avm_badge/blob/cb019046f4acba55c0301ff86809b67bcdc87b3b/sim/lib/badge/sim/live.ex#L105
+
 ## Run
 
 From the apps repository, with Elixir 1.18.3 / OTP 27 installed through mise:
@@ -63,7 +98,7 @@ The last press before a tick wins. Held-key integration remains deferred.
 
 ## Rules and configuration
 
-The badge preset is 51×30 cells, drawn at 6 pixels per cell, at 100 ms per step.
+The badge preset is 51×30 cells, drawn at 6 pixels per cell, at 200 ms per step (five steps per second).
 Its fixed bitmap is 6,120 bytes with packed trails, rendered as one scaled image.
 S, G, Enter selects the original 78×46 board. Press G twice in settings to
 select the small 24×14 board instead. F/V adjust speed without changing the board.

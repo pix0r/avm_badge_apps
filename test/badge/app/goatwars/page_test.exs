@@ -2,6 +2,21 @@ defmodule Badge.App.Goatwars.PageTest do
   use ExUnit.Case, async: true
   alias Badge.App.Goatwars.{Match, Page}
 
+  test "default pace stays at five steps per second with four or two active players" do
+    for profiles <- [%{}, %{3 => :inactive, 4 => :inactive}] do
+      state = Page.init(countdown_ms: 0, profiles: profiles) |> Page.advance(0)
+      assert Page.advance(state, 199).match.game.tick == 1
+      next = Page.advance(state, 200)
+      assert next.match.game.tick == 2
+      assert Page.advance(next, 399).match.game.tick == 2
+      assert Page.advance(next, 400).match.game.tick == 3
+      {:ok, restarted} = Page.handle_key({:char, ?r}, next)
+      restarted = restarted |> Page.advance(1000) |> Page.advance(4000)
+      assert Page.advance(restarted, 4199).match.game.tick == 1
+      assert Page.advance(restarted, 4200).match.game.tick == 2
+    end
+  end
+
   test "pause and result captions draw without transparent glyph searches" do
     state = Page.init(countdown_ms: 0)
     {:ok, paused} = Page.handle_key({:char, 32}, state)
@@ -19,7 +34,7 @@ defmodule Badge.App.Goatwars.PageTest do
     assert byte_size(bytes) == 6120
     assert state.layout.cell == 6
     assert length(Page.render(state)) <= 26
-    assert state.match.game.config.step_ms == 100
+    assert state.match.game.config.step_ms == 200
   end
 
   test "settings can compare board sizes and rematches retain the selected size" do
@@ -51,9 +66,9 @@ defmodule Badge.App.Goatwars.PageTest do
     state = Page.init(countdown_ms: 0)
     {:ok, settings} = Page.handle_key({:char, ?s}, state)
     {:ok, settings} = Page.handle_key({:char, ?f}, settings)
-    assert settings.match.game.config.step_ms == 100
+    assert settings.match.game.config.step_ms == 200
     labels = for {:text, _, _, _, _, _, label} <- Page.render(settings), do: label
-    assert "F/V: Step 110ms" in labels
+    assert "F/V: Step 210ms" in labels
     assert "G: Board 51x30" in labels
     assert "Z/X" in labels
     assert "1/2" in labels
@@ -62,22 +77,22 @@ defmodule Badge.App.Goatwars.PageTest do
     assert slow.match.game.config.width == 51
     slow = slow |> Page.advance(0) |> Page.advance(3000)
     assert slow.match.game.tick == 1
-    assert Page.advance(slow, 3109).match.game.tick == 1
-    assert Page.advance(slow, 3110).match.game.tick == 2
+    assert Page.advance(slow, 3209).match.game.tick == 1
+    assert Page.advance(slow, 3210).match.game.tick == 2
     {:ok, rematch} = Page.handle_key({:char, ?r}, slow)
-    assert rematch.match.game.config.step_ms == 110
+    assert rematch.match.game.config.step_ms == 210
     {:ok, settings} = Page.handle_key({:char, ?s}, rematch)
     {:ok, settings} = Page.handle_key({:char, ?g}, settings)
     {:ok, full} = Page.handle_key(:enter, settings)
     assert full.match.game.config.width == 78
-    assert full.match.game.config.step_ms == 110
+    assert full.match.game.config.step_ms == 210
   end
 
   test "speed adjusts in ten-millisecond steps with safe upper and lower bounds" do
     {:ok, settings} = Page.handle_key({:char, ?s}, Page.init())
 
     settings =
-      Enum.reduce([110, 120, 130], settings, fn expected, settings ->
+      Enum.reduce([210, 220, 230], settings, fn expected, settings ->
         {:ok, next} = Page.handle_key({:char, ?f}, settings)
         {:ok, game} = Page.handle_key(:enter, next)
         assert game.match.game.config.step_ms == expected
@@ -86,7 +101,7 @@ defmodule Badge.App.Goatwars.PageTest do
 
     {:ok, settings} = Page.handle_key({:char, ?v}, settings)
     {:ok, game} = Page.handle_key(:enter, settings)
-    assert game.match.game.config.step_ms == 120
+    assert game.match.game.config.step_ms == 220
 
     for {key, expected} <- [{?v, 50}, {?f, 400}] do
       limit =
@@ -188,9 +203,10 @@ defmodule Badge.App.Goatwars.PageTest do
     {:ok, settings} = Page.handle_key({:move, :right}, settings)
     {:ok, applied} = Page.handle_key(:enter, settings)
     assert_simple(applied)
-    {:ok, human} = Page.handle_key({:move, :left}, state)
-    {:ok, bots} = Page.handle_key({:char, ?b}, human)
+    assert Page.handle_key({:move, :left}, state) == :ignore
+    {:ok, bots} = Page.handle_key({:char, ?b}, state)
     assert_simple(bots)
+    assert_simple(Page.advance(bots, 0))
   end
 
   defp assert_simple(state) do
@@ -200,7 +216,7 @@ defmodule Badge.App.Goatwars.PageTest do
 
   test "badge play retains no replay history across ticks and rematches" do
     state = Page.init(countdown_ms: 0)
-    state = Enum.reduce(0..30, state, fn tick, state -> Page.advance(state, tick * 100) end)
+    state = Enum.reduce(0..30, state, fn tick, state -> Page.advance(state, tick * 200) end)
     assert state.match.replay == []
     {:ok, state} = Page.handle_key({:char, ?r}, state)
     state = state |> Page.advance(4000) |> Page.advance(7000)
@@ -217,7 +233,7 @@ defmodule Badge.App.Goatwars.PageTest do
 
   test "badge ticks and rematches do not retain unused replay history" do
     state = Page.init(countdown_ms: 0)
-    state = Enum.reduce(0..9, state, fn tick, state -> Page.advance(state, tick * 100) end)
+    state = Enum.reduce(0..9, state, fn tick, state -> Page.advance(state, tick * 200) end)
     assert state.match.game.tick == 10
     assert state.match.replay == []
 
@@ -304,7 +320,7 @@ defmodule Badge.App.Goatwars.PageTest do
     next = Page.advance(state, 1000)
     assert next.match.game.tick == 1
     assert Page.advance(next, 1050).match.game.tick == 1
-    assert Page.advance(next, 1100).match.game.tick == 2
+    assert Page.advance(next, 1200).match.game.tick == 2
     {:ok, paused} = Page.handle_key({:char, 32}, next)
     assert Page.advance(paused, 5000).match == paused.match
   end
@@ -318,16 +334,60 @@ defmodule Badge.App.Goatwars.PageTest do
 
   test "four key pairs can take over four bots and apply one turn" do
     state = Page.init(countdown_ms: 0)
-
-    state =
-      Enum.reduce([{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}], state, fn key, state ->
-        {:ok, state} = Page.handle_key(key, state)
-        state
-      end)
-
+    for key <- [{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}],
+      do: assert(Page.handle_key(key, state) == :ignore)
+    state = Page.advance(state, 1000)
     assert state.match.controllers == %{1 => :human, 2 => :human, 3 => :human, 4 => :human}
-    assert state.match.pending == %{1 => :left, 2 => :left, 3 => :left, 4 => :left}
-    assert Page.advance(state, 1000).match.pending == %{}
+    assert state.match.pending == %{}
+    assert Enum.map(1..4, &state.match.game.players[&1].direction) == [:west, :east, :north, :south]
+  end
+
+  test "steering avoids a redraw and applies once at the scheduled step" do
+    state = Page.init(countdown_ms: 0) |> Page.advance(1000)
+    items = Page.render(state)
+    assert Page.handle_key({:move, :left}, state) == :ignore
+    assert Page.render(state) == items
+    assert Page.advance(state, state.due_at - 1) == state
+    next = Page.advance(state, state.due_at)
+    assert next.match.game.tick == state.match.game.tick + 1
+    assert next.match.game.players[1].direction == :west
+    assert next.match.pending == %{}
+    assert Page.advance(next, next.due_at).match.game.players[1].direction == :west
+  end
+
+  test "the latest turn for each player wins without buffering repeated turns" do
+    state = Page.init(countdown_ms: 0)
+    for _ <- 1..100, do: assert(Page.handle_key({:move, :left}, state) == :ignore)
+    assert Page.handle_key({:move, :right}, state) == :ignore
+    next = Page.advance(state, 0)
+    assert next.match.game.players[1].direction == :east
+    assert Page.advance(next, 100).match.game.players[1].direction == :east
+  end
+
+  test "pause, settings, restart and exit discard buffered steering" do
+    for key <- [{:char, 32}, {:char, ?s}, {:char, ?r}] do
+      state = Page.init(countdown_ms: 0, profiles: %{1 => :human})
+      assert Page.handle_key({:move, :left}, state) == :ignore
+      {:ok, next} = Page.handle_key(key, state)
+      next = %{next | screen: :game, paused: false, started: true}
+      assert Page.advance(next, 0).match.game.players[1].direction == :north
+    end
+
+    state = Page.init(countdown_ms: 0, profiles: %{1 => :human})
+    assert Page.handle_key({:move, :left}, state) == :ignore
+    assert Page.leave(state) == :ok
+    assert Page.advance(state, 0).match.game.players[1].direction == :north
+    assert Page.handle_key({:move, :left}, state) == :ignore
+    fresh = Page.init(countdown_ms: 0, profiles: %{1 => :human})
+    assert Page.advance(fresh, 0).match.game.players[1].direction == :north
+  end
+
+  test "steering while paused does not turn after resuming" do
+    state = Page.init(countdown_ms: 0, profiles: %{1 => :human})
+    {:ok, paused} = Page.handle_key({:char, 32}, state)
+    assert Page.handle_key({:move, :left}, paused) == :ignore
+    {:ok, next} = Page.handle_key({:char, 32}, paused)
+    assert Page.advance(next, 0).match.game.players[1].direction == :north
   end
 
   test "rounds restart after a visible result pause and scores persist" do

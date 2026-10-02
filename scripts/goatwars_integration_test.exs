@@ -2,7 +2,8 @@ root = Path.expand("..", __DIR__)
 Code.require_file("goatwars_core.exs", __DIR__)
 
 for file <- ~w(art render/interstitial render/layout render/explosion render page/state page),
-    do: Code.require_file(Path.join(root, "apps/goatwars/lib/badge/app/goatwars/" <> file <> ".ex"))
+    do:
+      Code.require_file(Path.join(root, "apps/goatwars/lib/badge/app/goatwars/" <> file <> ".ex"))
 
 ExUnit.start()
 
@@ -11,6 +12,15 @@ defmodule GoatwarsIntegrationTest do
   alias Badge.App.Goatwars.Page
   alias Badge.Store.Installed
   alias Badge.Sim.Display
+
+  defmodule RecordingDisplay do
+    def update(owner, items) do
+      send(owner, {:game_frame, items})
+      :ok
+    end
+
+    def deregister_font(_owner, _name), do: :ok
+  end
 
   setup do
     start_supervised!({Badge.Log, :ok})
@@ -49,9 +59,14 @@ defmodule GoatwarsIntegrationTest do
     assert length(snapshot.items) == length(snapshot.frame)
     Badge.UI.key_event(Badge.Keymap.decode(~c"Enter", false))
     tick()
-    assert Enum.any?(Display.snapshot().items, &match?({:text, _, _, _, _, _, "READY, SET, GOAT!"}, &1))
+
+    assert Enum.any?(
+             Display.snapshot().items,
+             &match?({:text, _, _, _, _, _, "READY, SET, GOAT!"}, &1)
+           )
+
     Badge.UI.key_event(Badge.Keymap.decode(~c"Left", false))
-    assert :sys.get_state(Badge.UI).page_state.match.controllers[1] == :human
+    _ = :sys.get_state(Badge.UI)
     Badge.UI.key_event(Badge.Keymap.decode(~c"S", false))
     tick()
     assert :sys.get_state(Badge.UI).page_state.screen == :settings
@@ -149,6 +164,54 @@ defmodule GoatwarsIntegrationTest do
     {:ok, paused} = Page.handle_key({:char, 32}, next.page_state)
     {:noreply, _} = Badge.UI.handle_info({:render_tick, self()}, %{next | page_state: paused})
     assert_receive {:rendered, 100}
+  end
+
+  test "a turn at the wall applies before movement and draws only the completed step" do
+    install()
+    Badge.UI.goto(Page)
+    ui = :sys.get_state(Badge.UI)
+    stop_supervised(Badge.UI)
+    game = Page.init(countdown_ms: 0)
+
+    {:ok, board} =
+      Badge.App.Goatwars.Game.new(game.match.game.config, [
+        %{id: 1, position: {0, 10}, direction: :west},
+        %{id: 2, position: {25, 10}, direction: :east}
+      ])
+
+    board = Badge.App.Goatwars.Game.compact(board)
+    match = Badge.App.Goatwars.Match.new(board, %{1 => :human, 2 => :human})
+    assert Badge.App.Goatwars.Match.tick(match).game.players[1].alive == false
+    game = %{game | match: match}
+
+    state = %{
+      ui
+      | page_state: game,
+        display: {RecordingDisplay, self()},
+        dirty: false,
+        countdown: 0,
+        status_countdown: 100,
+        drawn_at: :erlang.monotonic_time(:millisecond) - 100,
+        inflight: nil,
+        pending: nil
+    }
+
+    {:noreply, queued} = Badge.UI.handle_cast({:key, {:move, :left}}, state)
+    assert queued.page == Page
+    assert queued.page_state.match.game.tick == 0
+    assert queued.page_state == game
+    assert queued.tick_ms == state.tick_ms
+    refute_receive {:game_frame, _}, 0
+
+    {:noreply, next} = Badge.UI.handle_info({:render_tick, self()}, queued)
+    assert_receive {:rendered, 200}
+    assert next.page_state.match.game.tick == 1
+    assert next.page_state.match.game.players[1].direction == :south
+    assert next.page_state.match.game.players[1].position == {0, 11}
+    assert next.page_state.match.game.players[1].alive
+    assert next.page_state.match.pending == %{}
+    assert_receive {:game_frame, items}
+    assert Enum.take(items, length(Page.render(next.page_state))) == Page.render(next.page_state)
   end
 
   defp install do

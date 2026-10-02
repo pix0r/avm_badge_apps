@@ -159,7 +159,7 @@ defmodule GoatwarsResources do
     true = length(Page.render(state)) > 0
     {:ok, state} = Page.handle_key(:enter, state)
     state = state |> Page.advance(0) |> Page.advance(3000)
-    {:ok, state} = Page.handle_key({:move, :left}, state)
+    :ignore = Page.handle_key({:move, :left}, state)
     {:ok, state} = Page.handle_key({:char, ?s}, state)
     {:ok, state} = Page.handle_key({:char, ?c}, state)
     {:ok, state} = Page.handle_key({:char, ?g}, state)
