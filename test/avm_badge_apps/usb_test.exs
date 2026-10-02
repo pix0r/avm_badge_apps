@@ -23,6 +23,9 @@ defmodule AvmBadgeApps.UsbTest do
     assert apply(module, :screens, []) == 3
     page = apply(module, :for_key, [:clover, 2])
     state = page.init()
+    assert state.screen == :loading
+    state = state |> Badge.App.Goatwars.Page.advance(0) |> Badge.App.Goatwars.Page.advance(100)
+    assert state.screen == :title
     assert state.match.replay == []
   end
 

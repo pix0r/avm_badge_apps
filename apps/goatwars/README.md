@@ -19,7 +19,8 @@ mise exec elixir@1.18.3-otp-27 erlang@27.1.2 -- elixir scripts/goatwars_headless
 
 On first setup, run `MIX_TARGET=host mix deps.get` in `../avm_badge` with the same
 mise toolchain. The script accepts `AVM_BADGE_PATH` for a different firmware path.
-Visit http://localhost:3240. The title waits for Enter; four AI riders then launch
+Visit http://localhost:3240. Opening first shows a loading message while the title
+is prepared. The title waits for Enter; four AI riders then launch
 after a separate three-second board countdown with cannon launchers. Scores accumulate,
 and completed rounds restart after two seconds. Two browser tabs share one board.
 Exit the simulator's IEx with Ctrl-C, then `a`.
@@ -57,13 +58,14 @@ Artwork is embedded as RLE-compressed sixteen-colour pixel indices (3,748
 bytes), decoded once when the page opens, and reused as RGBA binaries (46.5 KiB).
 Stars and neon scenery are display primitives. The Elixir/Goatmire palette uses a
 slightly lighter purple board without grid lines and saturated bright purple,
-neon green, hot pink and violet trails. The app pack is 64,656 bytes, under the 65,536-byte
+neon green, hot pink and violet trails. The app pack is 65,140 bytes, under the 65,536-byte
 Store limit. The matching offline USB build has
-32,612 bytes free in firmware and no free space in assets; rebuild and check both
+3,700 bytes free in firmware and no free space in assets; rebuild and check both
 sizes after changes.
 The USB pack excludes host-only Mix tasks. [Artwork and extraction prompts](assets/source.json)
 record the two sprites; PNG previews are excluded from firmware packs.
-`Page.init(countdown_ms: 0)` skips the title and countdown for tests and benchmarks.
+`Page.init(countdown_ms: 0)` skips loading, the title and countdown for tests and benchmarks.
+`Page.init(loading: false)` prepares the title immediately for isolated title tests.
 
 A keypress supplies one turn on the next tick; absent input maintains direction.
 The last press before a tick wins. Held-key integration remains deferred.

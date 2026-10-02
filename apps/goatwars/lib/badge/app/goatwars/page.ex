@@ -10,6 +10,11 @@ defmodule Badge.App.Goatwars.Page do
   def icon, do: :cross
   @impl true
   def init(options \\ []) do
+    loading = Keyword.get(options, :loading, Keyword.get(options, :countdown_ms, 3000) != 0)
+    if loading, do: %{screen: :loading, startup: :paint, options: options}, else: prepare(options)
+  end
+
+  defp prepare(options) do
     rules =
       Keyword.get(options, :rules, %{width: 23, height: 23, explosion_radius: 2, retract_speed: 8})
 
@@ -42,6 +47,7 @@ defmodule Badge.App.Goatwars.Page do
   end
 
   @impl true
+  def handle_key(_event, %{screen: :loading}), do: :ignore
   def handle_key(event, %{screen: :settings} = state), do: settings_key(event, state)
   def handle_key(event, %{screen: :title} = state), do: title_key(event, state)
 
@@ -153,6 +159,7 @@ defmodule Badge.App.Goatwars.Page do
 
   def tick(state), do: advance(state, :erlang.monotonic_time(:millisecond))
   @impl true
+  def refresh(%{screen: :loading}), do: 0
   def refresh(state), do: tick_interval(state)
 
   @impl true
@@ -162,6 +169,8 @@ defmodule Badge.App.Goatwars.Page do
   def tick_interval(_state), do: 100
 
   @doc "Advances against an explicit clock for deterministic shell tests."
+  def advance(%{screen: :loading, startup: :paint} = state, _now), do: %{state | startup: :prepare}
+  def advance(%{screen: :loading, startup: :prepare, options: options}, _now), do: prepare(options)
   def advance(%{screen: :settings} = state, _now), do: state
   def advance(%{screen: :title} = state, _now), do: state
   def advance(%{paused: true} = state, _now), do: state
@@ -282,6 +291,14 @@ defmodule Badge.App.Goatwars.Page do
   end
 
   @impl true
+  def render(%{screen: :loading}) do
+    [
+      {:text, 88, 100, :default16px, 0xFFF5CC, 0x241332, "Loading GoatWars..."},
+      {:text, 84, 124, :default16px, 0x5DE2B4, 0x241332, "Warming up the herd"},
+      {:rect, 0, 24, 320, 216, 0x241332}
+    ]
+  end
+
   def render(%{screen: :settings} = state), do: render_settings(state)
   def render(%{screen: :title, art: art}), do: Render.Interstitial.title(art)
 

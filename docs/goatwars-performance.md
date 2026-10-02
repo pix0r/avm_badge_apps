@@ -17,6 +17,22 @@ between the two central edge cells so spawns match under a 90-degree rotation.
 Rendering fits custom dimensions to 312×184 pixels; the HUD stays outside that area.
 M Square uses 65.4% fewer board bytes than the previous 51×30 default.
 
+## Deferred startup
+
+Opening GoatWars returns a small loading state before decoding artwork or
+building the match. The first tick submits “Loading GoatWars...” and the next
+prepares the title. Enter starts the existing three-second countdown. Home
+navigation can cancel loading; initialization options survive preparation.
+Preparation remains synchronous after the loading frame is submitted.
+
+The current artwork decoder is retained. Startup tests cover deferred work,
+frame ordering and custom options; firmware UI integration covers Home
+cancellation and reentry. All 198 apps tests and eight firmware UI scenarios
+pass. The strict native audit resolves all imports across 21 modules, and the
+65,140-byte Store pack loads and plays on AtomVM. The offline USB fixture is
+668,044/671,744 bytes in main and 262,144/262,144 in assets.
+Physical visibility needs a badge check.
+
 ## No-grid purple palette, October 2
 
 Version 0.1.6 removes gameplay grid lines in both map and bitmap renderers.

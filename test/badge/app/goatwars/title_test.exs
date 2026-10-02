@@ -3,7 +3,7 @@ defmodule Badge.App.Goatwars.TitleTest do
   alias Badge.App.Goatwars.{Page, Render}
 
   test "opening the page waits on the title until Enter starts the countdown" do
-    title = Page.init()
+    title = Page.init(loading: false)
     assert title.screen == :title
     assert Page.advance(title, 10_000) == title
     assert title.match.game.tick == 0
@@ -24,12 +24,12 @@ defmodule Badge.App.Goatwars.TitleTest do
 
   test "all Enter encodings start play from the title" do
     for key <- [:enter, {:edit, :newline}, {:char, 13}] do
-      assert {:ok, %{screen: :game, started: false}} = Page.handle_key(key, Page.init())
+      assert {:ok, %{screen: :game, started: false}} = Page.handle_key(key, Page.init(loading: false))
     end
   end
 
   test "canceling title settings returns to the title and applying settings starts play" do
-    title = Page.init()
+    title = Page.init(loading: false)
     {:ok, settings} = Page.handle_key({:char, ?s}, title)
     assert settings.screen == :settings
     assert Page.advance(settings, 1000) == settings
@@ -45,7 +45,7 @@ defmodule Badge.App.Goatwars.TitleTest do
   end
 
   test "title pause winner and draw reuse cached goat artwork" do
-    title = Page.init()
+    title = Page.init(loading: false)
     {:ok, countdown} = Page.handle_key(:enter, title)
     game = countdown |> Page.advance(0) |> Page.advance(3000)
     {:ok, paused} = Page.handle_key({:char, 32}, game)
@@ -92,7 +92,7 @@ defmodule Badge.App.Goatwars.TitleTest do
 
   test "a separate board countdown shows four cannons without moving riders" do
     for {width, height} <- [{24, 14}, {51, 30}, {78, 46}] do
-      title = Page.init(rules: %{width: width, height: height})
+      title = Page.init(loading: false, rules: %{width: width, height: height})
       {:ok, countdown} = Page.handle_key(:enter, title)
       countdown = Page.advance(countdown, 0)
 
@@ -121,7 +121,7 @@ defmodule Badge.App.Goatwars.TitleTest do
   end
 
   test "purple scenery and dark player labels keep the theme readable" do
-    title = Page.init()
+    title = Page.init(loading: false)
     assert {:rect, 0, 24, 320, 216, 0x241332} in Page.render(title)
     assert Enum.any?(Page.render(title), &match?({:scaled_cropped_image, 16, 28, 288, 80, _, _, _, _, _, _, {:rgba8888, 144, 40, _}}, &1))
     {:ok, settings} = Page.handle_key({:char, ?s}, title)

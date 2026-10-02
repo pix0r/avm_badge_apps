@@ -43,6 +43,11 @@ defmodule GoatwarsIntegrationTest do
     install()
     Badge.UI.goto(Page)
     assert :sys.get_state(Badge.UI).page == Page
+    assert :sys.get_state(Badge.UI).page_state.screen == :loading
+    tick()
+    loading = Display.snapshot()
+    assert Enum.any?(loading.items, &match?({:text, _, _, _, _, _, "Loading GoatWars..."}, &1))
+    refute Map.has_key?(:sys.get_state(Badge.UI).page_state, :art)
     tick()
     snapshot = Display.snapshot()
     assert Enum.any?(snapshot.items, &match?({:text, _, _, _, _, _, "Enter: play"}, &1))
@@ -67,7 +72,27 @@ defmodule GoatwarsIntegrationTest do
     Badge.UI.key_event({:nav, :home})
     assert :sys.get_state(Badge.UI).page == Badge.Page.Home
     Badge.UI.goto(Page)
+    assert :sys.get_state(Badge.UI).page_state.screen == :loading
+    tick()
+    tick()
     assert :sys.get_state(Badge.UI).page_state.round == 1
+  end
+
+  test "Home navigation cancels loading and reentry begins with a fresh loading frame" do
+    install()
+    Badge.UI.goto(Page)
+    assert :sys.get_state(Badge.UI).page_state.screen == :loading
+    tick()
+    Badge.UI.key_event({:nav, :home})
+    assert :sys.get_state(Badge.UI).page == Badge.Page.Home
+    tick()
+    assert :sys.get_state(Badge.UI).page == Badge.Page.Home
+    Badge.UI.goto(Page)
+    assert :sys.get_state(Badge.UI).page_state.screen == :loading
+    tick()
+    assert Enum.any?(Display.snapshot().items, &match?({:text, _, _, _, _, _, "Loading GoatWars..."}, &1))
+    tick()
+    assert :sys.get_state(Badge.UI).page_state.screen == :title
   end
 
   test "installation survives a fresh UI process and an offline download fails safely" do
