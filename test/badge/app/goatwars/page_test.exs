@@ -18,7 +18,7 @@ defmodule Badge.App.Goatwars.PageTest do
     assert {23, 23, bytes} = state.match.game.occupied
     assert byte_size(bytes) == 2116
     assert state.layout.cell == 8
-    assert length(Page.render(state)) <= 26
+    assert length(Page.render(state)) <= 42
     assert state.match.game.config.step_ms == 100
   end
 
@@ -218,7 +218,7 @@ defmodule Badge.App.Goatwars.PageTest do
 
     assert Enum.count(state.match.events, &match?({:crashed, _, _}, &1)) == 2
     items = Page.render(state)
-    assert length(items) <= 26
+    assert length(items) <= 42
     assert {:text, 47, 210, :default16px, 0xFFFFFF, 0x241332, "BAA!"} in items
     assert {:text, 90, 210, :default16px, 0xFFFFFF, 0x241332, "BAA!"} in items
     assert {:text, 4, 210, :default16px, 0xFFFFFF, 0x241332, "775"} in items

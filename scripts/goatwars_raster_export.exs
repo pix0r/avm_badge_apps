@@ -53,3 +53,11 @@ for {width, height} <- [{14, 14}, {23, 23}, {30, 30}, {46, 46}, {24, 14}, {39, 2
 
   GoatwarsRasterExport.write(state, out, "#{width}x#{height}")
 end
+
+if System.get_env("GOATWARS_FIXED_WORKLOAD") == "1" do
+  for {width, height} <- [{23, 23}, {78, 46}], blocked <- [false, true] do
+    label = "v1_#{if blocked, do: "blocked", else: "cruise"}_#{width}x#{height}"
+    state = GoatwarsBenchmark.fixed_state(width, height, blocked) |> Badge.App.Goatwars.Page.advance(0)
+    GoatwarsRasterExport.write(state, out, label)
+  end
+end

@@ -70,8 +70,24 @@ defmodule Badge.App.Goatwars.TitleTest do
     assert "PLAYER 2 WINS" in labels.(winner)
     assert "BONUS 120" in labels.(winner)
     assert "DRAW" in labels.(draw)
-    assert length(Page.render(game)) <= 26
+    assert length(Page.render(game)) <= 42
     refute Enum.any?(Page.render(game), &match?({:scaled_cropped_image, _, _, _, _, _, _, _, _, _, _, {:rgba8888, 96, 64, _}}, &1))
+  end
+
+  test "round results place a smaller goat lower without covering scores" do
+    state = Page.init(countdown_ms: 0)
+
+    for status <- [:draw, {:winner, 1}] do
+      result = %{
+        state
+        | match: %{state.match | game: %{state.match.game | status: status}, awarded_bonus: if(status == :draw, do: nil, else: {1, 100})}
+      }
+
+      goat = Enum.find(Page.render(result), &match?({:scaled_cropped_image, _, _, _, _, _, _, _, _, _, _, {:rgba8888, 96, 64, _}}, &1))
+      assert {:scaled_cropped_image, 112, 136, 96, 64, _, 0, 0, 1, 1, [], _} = goat
+      refute goat in Page.render(Page.init())
+      assert Enum.any?(Page.render(result), &match?({:text, _, 210, _, _, _, _}, &1))
+    end
   end
 
   test "a separate board countdown shows four cannons without moving riders" do

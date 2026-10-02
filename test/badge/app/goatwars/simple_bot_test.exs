@@ -66,9 +66,58 @@ defmodule Badge.App.Goatwars.SimpleBotTest do
     end
   end
 
-  test "seeded choices vary on comparable safe routes and remain reproducible" do
+  test "cruises to the last clear cell without idle turns or distant chasing" do
     game = game()
+    game = %{game | players: Map.put(game.players, 2, %{game.players[2] | position: {99, 99}})}
+
+    for x <- [4, 40, 96, 97, 98], seed <- 1..64 do
+      player = %{game.players[1] | position: {x, 4}}
+      state = %{game | players: Map.put(game.players, 1, player), occupied: %{{x, 4} => 1, {99, 99} => 2}}
+      assert {nil, _} = SimpleBot.choose(state, 1, SimpleBot.init(seed, :pro))
+    end
+  end
+
+  test "when blocked chooses the longer clear lane beyond the local escape check" do
+    {:ok, game} =
+      Game.new(%{width: 21, height: 21, shrink_after: :never}, [
+        %{id: 1, position: {10, 10}, direction: :east},
+        %{id: 2, position: {20, 20}, direction: :west}
+      ])
+
     game = %{game | players: Map.put(game.players, 2, %{game.players[2] | alive: false})}
+
+    for {obstacle, expected} <- [{{10, 6}, :right}, {{10, 14}, :left}], seed <- 1..64 do
+      state = %{game | occupied: %{{10, 10} => 1, {11, 10} => 2, obstacle => 2}}
+      assert {^expected, _} = SimpleBot.choose(state, 1, SimpleBot.init(seed))
+      assert {^expected, _} = SimpleBot.choose(Game.compact(state), 1, SimpleBot.init(seed))
+    end
+  end
+
+  test "safety turns choose the longer lane even when the forward cell is empty" do
+    {:ok, game} =
+      Game.new(%{width: 21, height: 21, shrink_after: :never}, [
+        %{id: 1, position: {10, 10}, direction: :east},
+        %{id: 2, position: {12, 10}, direction: :west}
+      ])
+
+    for reason <- [:head_on, :dead_end], seed <- 1..64 do
+      occupied = Map.put(game.occupied, {10, 6}, 2)
+      players = if reason == :dead_end, do: Map.put(game.players, 2, %{game.players[2] | alive: false}), else: game.players
+      occupied = if reason == :dead_end, do: Map.merge(occupied, %{{11, 9} => 2, {11, 11} => 2}), else: occupied
+      state = %{game | players: players, occupied: occupied}
+      refute Board.has?(state.occupied, {11, 10})
+      assert {:right, _} = SimpleBot.choose(state, 1, SimpleBot.init(seed))
+    end
+  end
+
+  test "equal turning lanes use reproducible seeded tie breaking" do
+    {:ok, game} =
+      Game.new(%{width: 21, height: 21, shrink_after: :never}, [
+        %{id: 1, position: {10, 10}, direction: :east},
+        %{id: 2, position: {20, 20}, direction: :west}
+      ])
+
+    game = %{game | players: Map.put(game.players, 2, %{game.players[2] | alive: false}), occupied: %{{10, 10} => 1, {11, 10} => 2}}
 
     turns =
       for seed <- 1..64 do
@@ -78,7 +127,7 @@ defmodule Badge.App.Goatwars.SimpleBotTest do
         elem(decision, 0)
       end
 
-    assert MapSet.new(turns) == MapSet.new([nil, :left, :right])
+    assert MapSet.new(turns) == MapSet.new([:left, :right])
   end
 
   test "each decision advances a small seed without changing custom profiles" do
@@ -120,24 +169,45 @@ defmodule Badge.App.Goatwars.SimpleBotTest do
     assert reductions(dense, memory) <= reductions(sparse, memory) + 300
   end
 
-  test "optimized decisions preserve the recorded seeded four-goat replays" do
+  test "a blocked XL wide decision scans lanes within a bounded work budget" do
+    {:ok, game} =
+      Game.new(%{width: 78, height: 46, shrink_after: :never}, [
+        %{id: 1, position: {39, 23}, direction: :north},
+        %{id: 2, position: {77, 45}, direction: :west}
+      ])
+
+    game =
+      Game.compact(%{
+        game
+        | players: Map.put(game.players, 2, %{game.players[2] | alive: false}),
+          occupied: %{{39, 23} => 1, {39, 22} => 2}
+      })
+
+    for seed <- 1..32 do
+      memory = SimpleBot.init(seed)
+      assert {:left, _} = SimpleBot.choose(game, 1, memory)
+      assert reductions(game, memory) <= 1800
+    end
+  end
+
+  test "space-cruising decisions preserve recorded seeded four-goat replays" do
     fixtures = [
-      {{24, 14}, 1, "e141a9951cbbebdd77502ce25698697ba5c3c07ed770be6bc7fb3a42dede5c56"},
-      {{24, 14}, 7, "31b868b4dae94a34ec3f7648f74cb31dc7dc5e30d8017a90835ba22ae7210945"},
-      {{24, 14}, 31, "f5fa28b020b19916a527b3feacd431a8b4a53de2e3cbf1ad3ed2cb59158c6a7d"},
-      {{24, 14}, 99, "17e4913afdc44672fff4121f86184353093ebf9a5a75fc828042825577dfc925"},
-      {{39, 23}, 1, "0a9e1118f044c8c7793f8a1bfb3e2e36674ef4ab117dfa0e64d825e7f64cbc7a"},
-      {{39, 23}, 7, "7fd8f4c3bee9f328d1d8ee53a190e9eac1909a79924f33e25d01024c2c37827e"},
-      {{39, 23}, 31, "2edc94067872cde9d39c2bb2d4567b1e33b9e59dd839922a75af2cb8cd2b14b1"},
-      {{39, 23}, 99, "04320ae40acec2f4c2aa882304c7227f525d1f7427fd91dccfc9d1425c67c950"},
-      {{51, 30}, 1, "bbc65986d62958d38d2547dafc318f1e1774af259301e30176ca852ad7daa4ca"},
-      {{51, 30}, 7, "ecfaf5f809d6df66c64917d409e98806e77073f835c8b11374852726dd401d59"},
-      {{51, 30}, 31, "fb73663f20e7d632804f650e4b61c3afd213114050261016ee3f20b39b66d48d"},
-      {{51, 30}, 99, "10347838617a7ff35c54862ef3fecf61896380375c7062fda38f4347c4149dd2"},
-      {{78, 46}, 1, "3c0d716957360f1d05c16d92bfcce907458c499a335fe0568d8565e5fa260efd"},
-      {{78, 46}, 7, "5ddd05ef6b8b8021ae0a201a01f0cf50cd1678e4b71341cf11ce63aa34f7cdb2"},
-      {{78, 46}, 31, "f44f8ffaa11d9f4ddf5f2416cdf5d2333387c03b2b70f6deb5615d2047a4bf41"},
-      {{78, 46}, 99, "3ba70ef567778575c1702d8df6d36c71fb3a301829220907605518c84c056ef3"}
+      {{24, 14}, 1, "5505a08cf4c4af550e5714cd096afa8d4b0c9e331daceca2a35f6c6fa3e22636"},
+      {{24, 14}, 7, "5505a08cf4c4af550e5714cd096afa8d4b0c9e331daceca2a35f6c6fa3e22636"},
+      {{24, 14}, 31, "5505a08cf4c4af550e5714cd096afa8d4b0c9e331daceca2a35f6c6fa3e22636"},
+      {{24, 14}, 99, "5505a08cf4c4af550e5714cd096afa8d4b0c9e331daceca2a35f6c6fa3e22636"},
+      {{39, 23}, 1, "120ef155469b13216767435fef4f8b1909f5c1ea654a6f407d207b0187290f7b"},
+      {{39, 23}, 7, "474e49f23a72c8ba28754487a800c0540118e41dae7fc1a7ecc716297c37bbca"},
+      {{39, 23}, 31, "19978f29dbc33e1fac4d07bf424d88cfd4ea4f6deb1b68e228b905aacac95edc"},
+      {{39, 23}, 99, "474e49f23a72c8ba28754487a800c0540118e41dae7fc1a7ecc716297c37bbca"},
+      {{51, 30}, 1, "bb7b0b8ae6b7711b284c28ff8da65aa32d7354ef84d8040a10f55778d8ad240b"},
+      {{51, 30}, 7, "a1a764aaee05cfe9bbcde42a8df7375e6bb2bd434d53425045c011cf39e7c901"},
+      {{51, 30}, 31, "a1a764aaee05cfe9bbcde42a8df7375e6bb2bd434d53425045c011cf39e7c901"},
+      {{51, 30}, 99, "a1a764aaee05cfe9bbcde42a8df7375e6bb2bd434d53425045c011cf39e7c901"},
+      {{78, 46}, 1, "81bc68e61968274bbc3aa2e7676a44a1b754ac21d8d33b9a6026578d03aa6067"},
+      {{78, 46}, 7, "81bc68e61968274bbc3aa2e7676a44a1b754ac21d8d33b9a6026578d03aa6067"},
+      {{78, 46}, 31, "81bc68e61968274bbc3aa2e7676a44a1b754ac21d8d33b9a6026578d03aa6067"},
+      {{78, 46}, 99, "81bc68e61968274bbc3aa2e7676a44a1b754ac21d8d33b9a6026578d03aa6067"}
     ]
 
     for {{width, height}, seed, expected} <- fixtures do

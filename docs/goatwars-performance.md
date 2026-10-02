@@ -1,6 +1,6 @@
 # GoatWars performance verification
 
-Version 0.1.4 defaults to **M Square**, 23×23 cells at 8 pixels per cell,
+Version 0.1.5 defaults to **M Square**, 23×23 cells at 8 pixels per cell,
 with a 2,116-byte opaque RGBA bitmap. Settings G cycles S/M/L/XL and A switches
 Square/Wide. Step durations remain 50–400 ms in 10 ms increments (F slower,
 V faster). Enter applies the draft; S cancels; rematches retain all choices.
@@ -16,6 +16,75 @@ The square arena gives each edge the same room. Even-sized squares alternate
 between the two central edge cells so spawns match under a 90-degree rotation.
 Rendering fits custom dimensions to 312×184 pixels; the HUD stays outside that area.
 M Square uses 65.4% fewer board bytes than the previous 51×30 default.
+
+## Space-efficient AI and purple laser grid, October 2
+
+Version 0.1.5 stops proximity chasing and idle random turns. Short projected
+route intersections still allow cutoffs. When straight travel is unsafe, the bot
+scans the two clear turning lanes to the next obstacle or fence and chooses the
+longer one. This includes an occupied forward cell, an approaching head, and a
+clear cell with no onward escape. Ray scans are tail-recursive and bounded by
+board dimensions; cruising retains the two-cell safety check. A blocked XL Wide
+bot decision is capped at 1,800 host reductions. Four-goat early frames remain
+within the existing 1,250-reduction guard. These are work guards, not badge timing.
+
+The board is richer purple with one-pixel grid lines every eight cells. The
+compact path overlays at most 16 lines on XL Wide, with white heads above the
+lines. Trails are saturated gold, green, pink and violet; their bitmap encoding
+and collision IDs agree. Gameplay pages emit at most 42 items. The goat on pause,
+win and draw screens is 96×64 at (112,136), half the title scale and clear of the
+score panel. It reuses the same cached RGBA binary.
+
+AI routes and round lengths intentionally change, so whole-round comparisons
+across this policy boundary are rejected. The opt-in fixed-input benchmark uses
+four identical literal head/obstacle setups on both revisions and repeats one
+advance/render from each immutable state 1,000 times. The actual C display driver
+then rasterizes each resulting scene. Compare against `501f38a`:
+
+| Fixed fixture | Before construction | Current construction | Before raster | Current raster |
+|---|---:|---:|---:|---:|
+| M Square cruising | 457 µs | 443 µs | 73 µs | 110 µs |
+| M Square, all four forced to turn | 438 µs | 626 µs | 73 µs | 108 µs |
+| XL Wide cruising | 465 µs | 471 µs | 91 µs | 264 µs |
+| XL Wide, all four forced to turn | 442 µs | 965 µs | 87 µs | 263 µs |
+
+Cruising construction is approximately unchanged. Forced turns cost more because
+they inspect full lanes; the grid also increases raster work, especially on XL.
+Including raster, M cruising is about 4% slower and XL cruising about 32% slower
+in these fixtures. This is a functionality tradeoff, not a new performance gain.
+The native VM is 64-bit on a desktop; these values do not predict ESP32 frame time.
+
+Run with the pinned VM/boot/driver environment from the commands below:
+
+```sh
+GOATWARS_BASELINE_REF=501f38a GOATWARS_FIXED_WORKLOAD=1 \
+GOATWARS_MIN_SPEEDUP=0.25 GOATWARS_RESULTS=/tmp/goatwars-space-bench \
+  ./scripts/goatwars_benchmark.sh
+GOATWARS_FIXED_WORKLOAD=1 GOATWARS_MIN_SPEEDUP=0.25 \
+  ./scripts/goatwars_raster.sh /tmp/goatwars-space-bench
+```
+
+The 0.25 threshold checks that no fixture is more than four times slower; it is
+not a speedup claim. The default whole-round gate is unchanged. Fixed fixture
+generation is explicitly opt-in so old baselines and saved raster results still
+run without newer helper APIs. Fixtures reject missing/duplicate cases, mismatched
+runtimes or repetition counts, and incomplete driver measurements.
+
+195 apps tests, seven firmware UI integration scenarios, and 15 Python/native
+pixel tests pass. The strict AtomVM gate resolves all imports and 63 instructions
+in 21 game modules. Store pack: 65,332/65,536 bytes. USB main: 668,168/671,744;
+assets: 262,144/262,144. Native Store and actual split USB images load and play.
+The memory stress suite passes 2,400 seeded rounds across eight geometries under
+4,096/8,192/16,384-word caps. Peak retained soak state is 636 words; sampled
+binary memory peaks at 65,580 bytes. M Square peaks at 50,600 bytes; the 32-frame
+M queue peaks at 118,308 bytes and XL Wide at 524,844. No extra artwork or board
+cache was added. Native results exclude total ESP32 internal RAM/PSRAM usage.
+
+Evidence: `/private/tmp/beamwars-readiness/goatwars-space-native` and
+`/private/tmp/beamwars-readiness/goatwars-space-final-benchmark`. Actual framebuffer
+samples verify the background, both grid axes, four trail colors and head highlight.
+Board and result PNGs in `goatwars-space-benchmark/current` were inspected. No badge was
+accessed or flashed.
 
 ## Further CPU optimization, October 2
 

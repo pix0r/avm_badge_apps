@@ -28,9 +28,9 @@ Exit the simulator's IEx with Ctrl-C, then `a`.
 | --- | --- |
 | Enter, on the title | Start the countdown |
 | Left / Right | Take over gold (player 1), turn left / right |
-| Z / X | Take over mint (player 2), turn left / right |
-| 1 / 2 | Take over coral (player 3), turn left / right |
-| 9 / 0 | Take over lavender (player 4), turn left / right |
+| Z / X | Take over neon green (player 2), turn left / right |
+| 1 / 2 | Take over hot pink (player 3), turn left / right |
+| 9 / 0 | Take over violet (player 4), turn left / right |
 | Space | Pause / resume |
 | R | New round, preserve total scores |
 | S | Open / cancel player settings |
@@ -51,13 +51,15 @@ suspend the match; S cancels without applying changes and returns to the screen 
 independent; rematches preserve all three. Leaving and reopening restores defaults.
 
 The title shows detailed goat/lightcycle art and “DON’T LET IT CRASH”. Pause, win
-and draw screens reuse the goat. The countdown shows the full board and launchers.
+and draw screens show the cached goat at half the title scale, centered lower
+above the score panel. The countdown shows the full board and launchers.
 Artwork is embedded as RLE-compressed sixteen-colour pixel indices (3,748
 bytes), decoded once when the page opens, and reused as RGBA binaries (46.5 KiB).
 Stars and neon scenery are display primitives. The Elixir/Goatmire palette uses a
-purple board with gold, mint, coral and lavender trails. The app pack is 65,476
-bytes, under the 65,536-byte Store limit. The matching offline USB build has
-3,432 bytes free in firmware and no free space in assets; rebuild and check both
+richer purple board with a thin purple laser grid and saturated gold, neon green,
+hot pink and violet trails. The app pack is 65,332 bytes, under the 65,536-byte
+Store limit. The matching offline USB build has
+3,576 bytes free in firmware and no free space in assets; rebuild and check both
 sizes after changes.
 The USB pack excludes host-only Mix tasks. [Artwork and extraction prompts](assets/source.json)
 record the two sprites; PNG previews are excluded from firmware packs.
@@ -80,7 +82,7 @@ than the requested rate if gameplay or display work takes longer.
 [Performance verification](../../docs/goatwars-performance.md)
 contains benchmarks and device timing instructions.
 
-Gold starts at the bottom, mint at the top, coral at the left and lavender at the
+Gold starts at the bottom, green at the top, pink at the left and violet at the
 right, facing inward.
 The core accepts arbitrary rosters of two or more players through `Game.new/2`;
 `Match.demo/3` supplies four edge spawns and requires dimensions at least 2×2.
@@ -119,11 +121,14 @@ are adaptation choices, not claims of exact emulation.
 
 ## AI and controllers
 
-The badge page uses `SimpleBot`: compare straight, left and right using a short
-safety lookahead, pursue opponents and cut across their projected routes. Seeded
-variation changes comparable safe choices; each decision advances the seed, and
-the same initial seed reproduces a match. Rematches, settings and B retain this
-bounded local policy. Advanced presets below apply to headless `Match.demo`, not to badge play.
+The badge page uses `SimpleBot`: it keeps going straight until a trail, wall,
+oncoming head or dead end requires a turn, unless a nearby projected opponent
+route presents an actual cutoff opportunity. It chooses the longer clear turning
+lane when straight travel is unsafe. Short safety checks run every tick; full
+lane scans run only on forced turns, without a board-wide flood fill. Seeded tie
+breaking chooses between equal lanes. Each decision advances the seed, and the
+same initial seed reproduces a match. Rematches, settings and B retain this policy.
+Advanced presets below apply to headless `Match.demo`, not to badge play.
 
 Every rider has a controller: `:human` or `{module, memory}`. Modules implement
 `Controller.init/1` and `choose(game, player_id, memory) -> {turn_or_nil, memory}`.

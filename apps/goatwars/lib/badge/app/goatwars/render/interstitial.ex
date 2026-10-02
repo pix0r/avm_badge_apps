@@ -44,7 +44,7 @@ defmodule Badge.App.Goatwars.Render.Interstitial do
     [
       text(div(320 - byte_size(title) * 8, 2), 34, title, color),
       text(div(320 - byte_size(hint) * 8, 2), 54, hint, @cream),
-      image(64, 76, goat)
+      {:scaled_cropped_image, 112, 136, 96, 64, @bg, 0, 0, 1, 1, [], goat}
       | @scenery ++ [{:rect, 0, 24, 320, 185, @bg}]
     ]
   end

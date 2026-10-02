@@ -92,7 +92,10 @@ checks; its settings offer Human, AI Simple and Inactive.
 
 ## Performance diagnostics
 
-Version 0.1.4 defaults to M Square, a 23×23 bitmap board and a ticker with backpressure.
+Version 0.1.5 defaults to M Square, a 23×23 bitmap board and a ticker with backpressure.
+The pen has a purple laser grid and saturated player colors. AI cruises straight
+and checks longer side lanes when forced to turn; it still attempts nearby cutoffs.
+Result screens use a smaller goat lower down, above the scores.
 Rematches preserve board size, aspect and speed; leaving and reopening restores defaults.
 The installer also includes firmware with a page-specific tick cadence; this is
 required for fine timing and sub-100 ms play. It requests up to 20 frames/s at

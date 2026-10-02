@@ -1,5 +1,5 @@
 defmodule Badge.App.Goatwars.SimpleBot do
-  @moduledoc "Seeded local escape checks and short opponent-route interception."
+  @moduledoc "Straight cruising, clear turning lanes and short opponent-route interception."
   @behaviour Badge.App.Goatwars.Controller
   alias Badge.App.Goatwars.{Arena, Board, Player}
   alias Badge.App.Goatwars.Bot.Profile
@@ -26,13 +26,13 @@ defmodule Badge.App.Goatwars.SimpleBot do
     %{prediction_ticks: prediction, aggression: aggression} = profile
     horizon = min(prediction, 3)
 
-    best =
-      Enum.reduce([{nil, 0}, {:left, 1}, {:right, 2}], nil, fn {turn, preference}, best ->
+    {best, _} =
+      Enum.reduce([{nil, 0}, {:left, 1}, {:right, 2}], {nil, false}, fn {turn, preference}, {best, cruising} ->
         direction = Player.turn(heading, turn)
         position = Player.step(origin, direction)
 
         if free?(position, arena, occupied) do
-          runway = runway(position, direction, arena, occupied)
+          runway = runway(position, direction, arena, occupied, 2, 0)
 
           escape =
             if runway > 0 or free?(Player.step(position, Player.turn(direction, :left)), arena, occupied) or
@@ -42,14 +42,25 @@ defmodule Badge.App.Goatwars.SimpleBot do
 
           {safe, attack} = opponents(routes, id, position, Player.step(position, direction), horizon, 1, 0)
 
-          jitter =
-            if rem(seed, 8) == 0 and rem(div(seed, 8), 3) == preference, do: 7, else: rem(seed + preference * 7, 3)
+          cruising = if turn == nil, do: safe == 1 and escape == 1, else: cruising
 
-          value = attack * aggression + jitter + if(turn == nil, do: 2, else: 0)
-          score = {safe, escape, runway, value}
-          if best == nil or score > elem(best, 0), do: {score, turn}, else: best
+          runway =
+            if turn != nil and not cruising,
+              do:
+                runway(
+                  position,
+                  direction,
+                  arena,
+                  occupied,
+                  max(Map.fetch!(arena, :right) - Map.fetch!(arena, :left), Map.fetch!(arena, :bottom) - Map.fetch!(arena, :top)),
+                  0
+                ),
+              else: runway
+
+          score = {safe, escape, attack * aggression, if(turn == nil, do: 1, else: 0), runway, rem(seed + preference * 7, 3)}
+          {if(best == nil or score > elem(best, 0), do: {score, turn}, else: best), cruising}
         else
-          best
+          {best, cruising}
         end
       end)
 
@@ -71,20 +82,18 @@ defmodule Badge.App.Goatwars.SimpleBot do
 
   defp opponents([{other, next, second, third} | rest], id, position, forward, horizon, safe, attack) when other != id do
     safe = if next == position, do: 0, else: safe
-    first = if horizon >= 1, do: proximity(position, next), else: 0
-    second = if horizon >= 2, do: proximity(position, second) + if(position == second, do: 16, else: 0), else: 0
-    third = if horizon >= 3, do: proximity(position, third) + if(position == third or forward == third, do: 16, else: 0), else: 0
-    opponents(rest, id, position, forward, horizon, safe, max(attack, max(first, max(second, third))))
+    intercept = if (horizon >= 2 and position == second) or (horizon >= 3 and (position == third or forward == third)), do: 1, else: 0
+    opponents(rest, id, position, forward, horizon, safe, max(attack, intercept))
   end
 
   defp opponents([_ | rest], id, position, forward, horizon, safe, attack),
     do: opponents(rest, id, position, forward, horizon, safe, attack)
 
-  defp proximity({x, y}, {tx, ty}), do: max(0, 12 - abs(x - tx) - abs(y - ty))
+  defp runway(_position, _direction, _arena, _occupied, 0, count), do: count
 
-  defp runway(position, direction, arena, occupied) do
+  defp runway(position, direction, arena, occupied, limit, count) do
     next = Player.step(position, direction)
-    if free?(next, arena, occupied), do: if(free?(Player.step(next, direction), arena, occupied), do: 2, else: 1), else: 0
+    if free?(next, arena, occupied), do: runway(next, direction, arena, occupied, limit - 1, count + 1), else: count
   end
 
   defp free?({x, y} = position, %{left: left, right: right, top: top, bottom: bottom}, occupied)

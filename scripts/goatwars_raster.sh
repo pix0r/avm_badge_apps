@@ -14,12 +14,24 @@ GOATWARS_RASTER_EXE="$out/raster/bench" python3 -m unittest discover -s "$root/t
 for variant in baseline current; do
   elixir "$root/scripts/goatwars_raster_export.exs" "$out/$variant/beams" "$out/$variant/scenes"
   : > "$out/$variant/raster.log"
-  frames="$(cat "$out/$variant/scenes/frames")"
-  for ((tick=1; tick<=frames; tick++)); do
-    "$out/raster/bench" "$out/$variant/scenes/$tick.scene" >> "$out/$variant/raster.log"
-  done
+  if [[ "${GOATWARS_FIXED_WORKLOAD:-0}" == 1 ]]; then
+    for size in 23x23 78x46; do
+      for phase in cruise blocked; do
+        label="v1_${phase}_${size}"
+        raster="$("$out/raster/bench" "$out/$variant/scenes/$label.scene")"
+        printf 'GW_FIXED_RASTER case=%s %s\n' "$label" "$raster" >> "$out/$variant/raster.log"
+      done
+    done
+  else
+    frames="$(cat "$out/$variant/scenes/frames")"
+    for ((tick=1; tick<=frames; tick++)); do
+      "$out/raster/bench" "$out/$variant/scenes/$tick.scene" >> "$out/$variant/raster.log"
+    done
+  fi
   for size in 14x14 23x23 30x30 46x46 24x14 39x23 51x30 78x46; do
     "$out/raster/bench" "$out/$variant/scenes/$size.scene" > "$out/$variant/$size-raster.log"
   done
 done
-python3 "$root/scripts/goatwars_compare.py" "$out/baseline/results.log" "$out/current/results.log" "$out/baseline/raster.log" "$out/current/raster.log" --minimum-speedup "${GOATWARS_MIN_SPEEDUP:-10}"
+compare_args=()
+if [[ "${GOATWARS_FIXED_WORKLOAD:-0}" == 1 ]]; then compare_args+=(--fixed); fi
+python3 "$root/scripts/goatwars_compare.py" "$out/baseline/results.log" "$out/current/results.log" "$out/baseline/raster.log" "$out/current/raster.log" "${compare_args[@]}" --minimum-speedup "${GOATWARS_MIN_SPEEDUP:-10}"

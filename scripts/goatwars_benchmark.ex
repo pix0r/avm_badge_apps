@@ -1,12 +1,30 @@
 defmodule GoatwarsBenchmark do
-  alias Badge.App.Goatwars.Page
+  alias Badge.App.Goatwars.{Game, Page, Player}
   @rules %{width: 78, height: 46, explosion_radius: 2, retract_speed: 8}
+  @fixed System.get_env("GOATWARS_FIXED_WORKLOAD") == "1"
 
   def start do
     :io.format(~c"GW_BENCH word_bytes=~p~n", [:erlang.system_info(:wordsize)])
     started = :erlang.monotonic_time(:microsecond)
     repeat(fn -> Page.init(countdown_ms: 0, rules: @rules) end, 50)
     :io.format(~c"GW_INIT cpu_us=~p~n", [div(:erlang.monotonic_time(:microsecond) - started, 50)])
+
+    if @fixed do
+      for {width, height} <- [{23, 23}, {78, 46}], blocked <- [false, true] do
+        state = fixed_state(width, height, blocked)
+        started = :erlang.monotonic_time(:microsecond)
+        repeat(fn -> Page.render(Page.advance(state, 0)) end, 1000)
+        elapsed = :erlang.monotonic_time(:microsecond) - started
+
+        :io.format(~c"GW_FIXED case=v1_~s_~px~p cpu_us=~p frames=1000~n", [
+          if(blocked, do: ~c"blocked", else: ~c"cruise"),
+          width,
+          height,
+          elapsed
+        ])
+      end
+    end
+
     initial = Page.init(countdown_ms: 0, rules: @rules)
     terminal = play(initial, 0)
 
@@ -46,6 +64,34 @@ defmodule GoatwarsBenchmark do
     end
 
     :ok
+  end
+
+  def fixed_state(width, height, blocked) do
+    state = Page.init(countdown_ms: 0, rules: %{@rules | width: width, height: height})
+    left = div(width, 4)
+    right = width - left - 1
+    top = div(height, 4)
+    bottom = height - top - 1
+
+    players = [
+      %{id: 1, position: {left, top}, direction: :east},
+      %{id: 2, position: {right, top}, direction: :west},
+      %{id: 3, position: {left, bottom}, direction: :north},
+      %{id: 4, position: {right, bottom}, direction: :south}
+    ]
+
+    match = Map.fetch!(state, :match)
+    {:ok, game} = Game.new(Map.fetch!(Map.fetch!(match, :game), :config), players)
+
+    occupied =
+      if blocked,
+        do:
+          Enum.reduce(players, Map.fetch!(game, :occupied), fn %{id: id, position: origin, direction: heading}, board ->
+            Map.put(board, Player.step(origin, heading), id)
+          end),
+        else: Map.fetch!(game, :occupied)
+
+    %{state | match: %{match | game: Game.compact(%{game | occupied: occupied})}}
   end
 
   defp build(state, _, 0), do: state

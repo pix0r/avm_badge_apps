@@ -3,15 +3,15 @@ defmodule Badge.App.Goatwars.Render do
   alias Badge.App.Goatwars.{Arena, Game}
   alias __MODULE__.Layout
 
-  @board 0x241332
-  @grid 0x4D2B63
+  @board 0x32104F
+  @grid 0x7734AA
   @wall 0x9B85AD
   @danger 0xFF694D
 
-  def color(1), do: 0xFFD166
-  def color(2), do: 0x5DE2B4
-  def color(3), do: 0xFF7A90
-  def color(4), do: 0xBDA7FF
+  def color(1), do: 0xFFCC00
+  def color(2), do: 0x00FF88
+  def color(3), do: 0xFF285C
+  def color(4), do: 0x7040FF
   def color(_), do: 0xA4B4FF
 
   def layout(%{width: width, height: height}) do
@@ -24,6 +24,7 @@ defmodule Badge.App.Goatwars.Render do
 
   def scene(%{occupied: {_, _, _}} = game, layout, phase) do
     heads(game, layout) ++
+      grid(Map.fetch!(game, :arena), layout) ++
       trails(game, layout) ++ frame(Map.fetch!(game, :arena), layout, warning_color(game, phase || Map.fetch!(game, :tick)))
   end
 
@@ -114,21 +115,11 @@ defmodule Badge.App.Goatwars.Render do
     ]
   end
 
-  defp grid(arena, layout) do
-    {left, top} = point({Map.fetch!(arena, :left), Map.fetch!(arena, :top)}, layout)
-    w = (Map.fetch!(arena, :right) - Map.fetch!(arena, :left) + 1) * Map.fetch!(layout, :cell)
-    h = (Map.fetch!(arena, :bottom) - Map.fetch!(arena, :top) + 1) * Map.fetch!(layout, :cell)
-
-    vertical =
-      for x <- :lists.seq(Map.fetch!(arena, :left), Map.fetch!(arena, :right)),
-          rem(x, 8) == 0,
-          do: {:rect, Map.fetch!(layout, :x) + x * Map.fetch!(layout, :cell), top, 1, h, @grid}
-
-    horizontal =
-      for y <- :lists.seq(Map.fetch!(arena, :top), Map.fetch!(arena, :bottom)),
-          rem(y, 8) == 0,
-          do: {:rect, left, Map.fetch!(layout, :y) + y * Map.fetch!(layout, :cell), w, 1, @grid}
-
+  defp grid(%{left: left, right: right, top: top, bottom: bottom}, %{x: ox, y: oy, cell: cell}) do
+    w = (right - left + 1) * cell
+    h = (bottom - top + 1) * cell
+    vertical = for x <- :lists.seq(div(left + 7, 8) * 8, right, 8), do: {:rect, ox + x * cell, oy + top * cell, 1, h, @grid}
+    horizontal = for y <- :lists.seq(div(top + 7, 8) * 8, bottom, 8), do: {:rect, ox + left * cell, oy + y * cell, w, 1, @grid}
     vertical ++ horizontal
   end
 

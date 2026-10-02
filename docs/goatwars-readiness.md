@@ -1,8 +1,37 @@
 # GoatWars hardware-free readiness
 
-Current square-board evidence is recorded below. Earlier
+Current AI/palette and square-board evidence is recorded below. Earlier
 optimization measurements are in [performance verification](goatwars-performance.md).
 The remaining sections record earlier readiness stages.
+
+## October 2 space-efficient AI and purple grid
+
+Version 0.1.5 keeps a clear heading until blocked or unsafe, chooses longer clear
+turning lanes, and still cuts across nearby projected opponent routes. Seeded
+variation breaks equal turning-lane ties. Long lane scans run only on forced
+turns and retain no board-sized terms. Regression tests cover occupied forward
+cells, head-on predictions, clear dead ends, distant opponents, map/bitmap parity,
+and bounded XL Wide work. Sixteen replay fixtures record the intentional new policy.
+
+The opaque board is richer purple with a thin laser grid, and trails use saturated
+gold/green/pink/violet. Pause and result screens reuse the goat at a smaller scale
+and lower position, leaving the score panel clear. No additional artwork binary
+is retained. Native framebuffer pixels and board/result previews were checked.
+
+195 host apps tests, seven fake-hardware firmware UI scenarios and 15 script/driver
+checks pass. The strict game audit resolves all imports and 63 instruction types
+in 21 modules. The Store pack is 65,332 bytes (204 bytes below the limit); USB main
+is 668,168/671,744 and assets are 262,144/262,144. Both Store and actual split USB
+images load and play on the pinned native AtomVM with the released boot library.
+Memory fixtures pass 2,400 seeded rounds across eight geometries and three heap
+caps, plus lifecycle, dense-board, reported-score and 32-frame queue checks.
+
+[Performance verification](goatwars-performance.md) records fixed-input CPU/raster
+comparisons against `501f38a`. Cruising construction is approximately unchanged;
+longer lane decisions and restored grid rendering add cost. No new speedup is
+claimed. The default whole-round comparator still rejects different round lengths;
+the new fixed-fixture mode is opt-in and preserves older benchmark workflows.
+No badge was accessed. Physical frame rate and player feel remain unmeasured.
 
 ## October 2 square presets and further optimization
 

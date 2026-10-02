@@ -4,12 +4,12 @@ defmodule Badge.App.Goatwars.BoardTest do
 
   test "empty bitmap cells use the opaque Elixir purple background" do
     board = Board.new(%{width: 3, height: 2}, %{})
-    assert board == {3, 2, :binary.copy(<<36, 19, 50, 255>>, 6)}
+    assert board == {3, 2, :binary.copy(<<50, 16, 79, 255>>, 6)}
     refute Board.has?(board, {1, 1})
   end
 
   test "all four complementary trail colors encode and decode their player IDs" do
-    pixels = [<<255, 209, 102, 255>>, <<93, 226, 180, 255>>, <<255, 122, 144, 255>>, <<189, 167, 255, 255>>]
+    pixels = [<<255, 204, 0, 255>>, <<0, 255, 136, 255>>, <<255, 40, 92, 255>>, <<112, 64, 255, 255>>]
     bytes = IO.iodata_to_binary(pixels)
     board = Board.new(%{width: 4, height: 1}, %{})
 
@@ -27,12 +27,12 @@ defmodule Badge.App.Goatwars.BoardTest do
   test "single and batch deletion restore purple while keeping neighboring player IDs" do
     board = Board.new(%{width: 4, height: 1}, %{{0, 0} => 1, {1, 0} => 2, {2, 0} => 3, {3, 0} => 4})
     single = Board.delete(board, {1, 0})
-    assert single == {4, 1, <<255, 209, 102, 255, 36, 19, 50, 255, 255, 122, 144, 255, 189, 167, 255, 255>>}
+    assert single == {4, 1, <<255, 204, 0, 255, 50, 16, 79, 255, 255, 40, 92, 255, 112, 64, 255, 255>>}
     assert Board.get(single, {1, 0}) == nil
     assert Board.get(single, {2, 0}) == 3
 
     cleared = Board.delete_many(single, [{3, 0}, {0, 0}, {3, 0}])
-    assert cleared == {4, 1, <<36, 19, 50, 255, 36, 19, 50, 255, 255, 122, 144, 255, 36, 19, 50, 255>>}
+    assert cleared == {4, 1, <<50, 16, 79, 255, 50, 16, 79, 255, 255, 40, 92, 255, 50, 16, 79, 255>>}
     assert Board.get(cleared, {2, 0}) == 3
     for cell <- [{0, 0}, {1, 0}, {3, 0}], do: assert(Board.get(cleared, cell) == nil)
   end
