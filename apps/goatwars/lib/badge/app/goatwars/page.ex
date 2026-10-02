@@ -189,7 +189,7 @@ defmodule Badge.App.Goatwars.Page do
   def tick(state), do: advance(state, :erlang.monotonic_time(:millisecond))
   @impl true
   def refresh(%{screen: :loading}), do: 0
-  def refresh(state), do: tick_interval(state)
+  def refresh(state), do: min(tick_interval(state), 100)
 
   def tick_interval(%{screen: :game, started: true, paused: false, result_until: nil, match: %{game: %{config: %{step_ms: ms}}}}),
     do: ms

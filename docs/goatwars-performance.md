@@ -1,5 +1,18 @@
 # GoatWars performance verification
 
+## Frame pacing correction, October 2
+
+The clean upstream UI ticks at 100 ms and uses `refresh/1` only to throttle
+painting. GoatWars also gates movement against its own clock. Returning the
+200 ms game step from both callbacks added a second frame delay: a reproduction
+with 220 ms callback gaps showed steps 1, 3 and 5, skipping 2 and 4.
+
+The app now requests drawing within 100 ms while retaining the selected game
+step duration. The same reproduction displays steps 1 through 5. The regression
+covers four and two active players; 204 apps tests pass. Native checks load and
+play the actual game and split USB archives with the unchanged upstream firmware.
+Physical frame pacing still needs confirmation on the badge.
+
 ## Default pace, October 2
 
 Badge play now defaults to 200 ms per step (five steps per second), down from
@@ -16,8 +29,8 @@ The final USB build uses unmodified published Store firmware
 `mwingert/avm_badge`, `feature/add-app-store-rebased`, at `bf0cc96`. The local
 cadence and firmware test fixes are excluded. Its UI ticker remains 100 ms;
 sub-100 ms game settings do not imply an equally fast display cadence.
-The current game pack is 65,516/65,536 bytes. USB main is 638,800/671,744
-bytes and assets are 262,144/262,144 bytes. The 20-byte game-pack margin is small;
+The current game pack is 65,532/65,536 bytes. USB main is 638,816/671,744
+bytes and assets are 262,144/262,144 bytes. The four-byte game-pack margin is small;
 further source changes need another size check.
 
 Version 0.1.6 defaults to **M Square**, 23×23 cells at 8 pixels per cell,

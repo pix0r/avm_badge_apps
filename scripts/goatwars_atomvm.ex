@@ -5,6 +5,7 @@ defmodule GoatwarsReadiness do
     for profiles <- [%{}, %{3 => :inactive, 4 => :inactive}] do
       page = Page.init(countdown_ms: 0, profiles: profiles) |> Page.advance(0)
       200 = Page.tick_interval(page)
+      100 = Page.refresh(page)
       1 = Page.advance(page, 199).match.game.tick
       next = Page.advance(page, 200)
       2 = next.match.game.tick

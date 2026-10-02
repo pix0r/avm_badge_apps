@@ -17,6 +17,18 @@ defmodule Badge.App.Goatwars.PageTest do
     end
   end
 
+  test "due game steps request a frame on the upstream 100 ms UI tick" do
+    for profiles <- [%{}, %{3 => :inactive, 4 => :inactive}] do
+      Enum.reduce([0, 220, 440, 660, 880], Page.init(countdown_ms: 0, profiles: profiles), fn now, state ->
+        next = Page.advance(state, now)
+        assert next.match.game.tick == state.match.game.tick + 1
+        assert Page.refresh(next) <= 100
+        assert next.match.game.config.step_ms == 200
+        next
+      end)
+    end
+  end
+
   test "pause and result captions draw without transparent glyph searches" do
     state = Page.init(countdown_ms: 0)
     {:ok, paused} = Page.handle_key({:char, 32}, state)
