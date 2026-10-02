@@ -2,6 +2,15 @@ defmodule GoatwarsReadiness do
   alias Badge.App.Goatwars.{Page, Match, Game}
 
   def start do
+    for profiles <- [%{}, %{3 => :inactive, 4 => :inactive}] do
+      page = Page.init(countdown_ms: 0, profiles: profiles) |> Page.advance(0)
+      200 = Page.tick_interval(page)
+      1 = Page.advance(page, 199).match.game.tick
+      next = Page.advance(page, 200)
+      2 = next.match.game.tick
+      2 = Page.advance(next, 399).match.game.tick
+      3 = Page.advance(next, 400).match.game.tick
+    end
     rounds(1)
     state = Page.init()
     :loading = Map.fetch!(state, :screen)
@@ -26,11 +35,11 @@ defmodule GoatwarsReadiness do
     {:ok, settings} = Page.handle_key({:char, ?f}, settings)
     {:ok, restarted} = Page.handle_key({:edit, :newline}, settings)
     false = restarted.started
-    110 = restarted.match.game.config.step_ms
+    210 = restarted.match.game.config.step_ms
     restarted = restarted |> Page.advance(0) |> Page.advance(3000)
-    110 = Page.tick_interval(restarted)
-    1 = Page.advance(restarted, 3109).match.game.tick
-    2 = Page.advance(restarted, 3110).match.game.tick
+    210 = Page.tick_interval(restarted)
+    1 = Page.advance(restarted, 3209).match.game.tick
+    2 = Page.advance(restarted, 3210).match.game.tick
 
     controls =
       Enum.reduce([{:move, :left}, {:char, ?z}, {:char, ?1}, {:char, ?9}], Page.init(countdown_ms: 0), fn event, page ->

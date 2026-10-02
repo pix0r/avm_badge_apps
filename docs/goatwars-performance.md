@@ -1,5 +1,25 @@
 # GoatWars performance verification
 
+## Default pace, October 2
+
+Badge play now defaults to 200 ms per step (five steps per second), down from
+100 ms. Four and two active players use the same requested cadence. Settings
+retain 10 ms F/V adjustments over 50–400 ms, and rematches retain the selected
+speed. The latest 23×23 M Square default, all Square/Wide presets, artwork,
+deferred startup and obstacle-avoidance AI remain in place.
+
+A failing-first clock test covers both player counts, boundaries before each
+step, and rematches. Native readiness checks the same 200 ms boundaries.
+The firmware home-grid test was removed; packaging tests remain.
+
+The final USB build uses unmodified published Store firmware
+`mwingert/avm_badge`, `feature/add-app-store-rebased`, at `bf0cc96`. The local
+cadence and firmware test fixes are excluded. Its UI ticker remains 100 ms;
+sub-100 ms game settings do not imply an equally fast display cadence.
+The current game pack is 65,516/65,536 bytes. USB main is 638,800/671,744
+bytes and assets are 262,144/262,144 bytes. The 20-byte game-pack margin is small;
+further source changes need another size check.
+
 Version 0.1.6 defaults to **M Square**, 23×23 cells at 8 pixels per cell,
 with a 2,116-byte opaque RGBA bitmap. Settings G cycles S/M/L/XL and A switches
 Square/Wide. Step durations remain 50–400 ms in 10 ms increments (F slower,

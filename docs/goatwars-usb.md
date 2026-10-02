@@ -9,14 +9,25 @@ The Store firmware is included; the game's public Store installation is separate
 Connect the badge over USB and close any serial monitor. In Terminal:
 
 ```sh
-cd /Users/mike/code/_Learn/goatmire-2026/avm_badge_apps/.worktrees/goatwars-new-store/avm_badge_apps
+cd /Users/mike/code/_Learn/goatmire-2026/avm_badge_apps
 ./scripts/goatwars_install.sh
 ```
 
-The installer uses the selected Store firmware worktree beside it. It builds and
-checks firmware, builds assets and the current game, validates both partition
-limits, then auto-detects the board and flashes the two packs together. It resets
+The installer uses the prepared `_build/goatwars-upstream-firmware` checkout:
+[mwingert/avm_badge, feature/add-app-store-rebased](https://github.com/mwingert/avm_badge/tree/feature/add-app-store-rebased),
+verified at `bf0cc9621b5fe9543a2c600ae43115e87fc78156`. No local firmware
+patches are included. `AVM_BADGE_PATH` selects an explicit firmware checkout. It builds
+firmware, assets and the current game, validates both partition limits, then auto-detects the board and flashes the two packs together. It resets
 the board afterward. Run the same command again to repeat the installation.
+
+The upstream checkout and dependencies are already prepared in this main directory.
+For a fresh apps checkout, prepare them once before running the installer:
+
+```sh
+git clone --single-branch --branch feature/add-app-store-rebased \
+  https://github.com/mwingert/avm_badge.git _build/goatwars-upstream-firmware
+(cd _build/goatwars-upstream-firmware && mix deps.get)
+```
 
 To prepare files without opening the board:
 
@@ -36,8 +47,8 @@ GOATWARS_USB_OUTPUT=/absolute/path/to/output \
 ./scripts/goatwars_install.sh
 ```
 
-The apps project's `../avm_badge` dependency must refer to that same firmware.
-A different firmware checkout may require rebuilding dependencies first.
+The installer compiles current game sources inside the selected firmware project,
+so the apps project’s sibling dependency does not select the USB build.
 
 ## What it writes
 
@@ -63,7 +74,7 @@ manifest are not changed by building these images.
 
 1. Wait for Home. Press Right twice to reach home screen three, then press the
    clover key for GoatWars. The title waits for Enter. A three-second countdown
-   then leads into M Square, 23×23 cells at 8 pixels per cell.
+   then leads into M Square, 23×23 cells at 8 pixels per cell and 200 ms per step.
 2. Use Left/Right to take over player one. Space pauses and resumes. `S` opens
    player settings, arrows change selections, and Enter applies them. G cycles
    S/M/L/XL boards; A switches Square/Wide; F slows down by 10 ms and V speeds up by 10 ms,
@@ -76,8 +87,9 @@ manifest are not changed by building these images.
 5. Record any reboot, return to Home, missing text, sluggish input or visual
    corruption. Include what you pressed and how long it had been running.
 
-On October 2, 2026, this build was flashed over USB and the user confirmed that
-GoatWars displays and responds correctly. The bounded boot log showed Home,
+On October 2, 2026, an earlier USB build was flashed and the user confirmed that
+GoatWars displays and responds correctly. The current clean-upstream build has
+been verified on the native VM; it still needs a physical device check. The bounded boot log showed Home,
 Wi-Fi reconnection and clock synchronization. Store opens; its online catalog
 was not verified because the network was poor.
 Host/native checks passed, including actual Store-pack and split USB-image
@@ -100,10 +112,10 @@ P1 uses a bright purple laser; the other player colors remain saturated. AI crui
 and checks longer side lanes when forced to turn; it still attempts nearby cutoffs.
 Result screens use a smaller goat lower down, above the scores.
 Rematches preserve board size, aspect and speed; leaving and reopening restores defaults.
-The installer also includes firmware with a page-specific tick cadence; this is
-required for fine timing and sub-100 ms play. It requests up to 20 frames/s at
-50 ms, subject to actual VM/display throughput. No physical frame-rate claim
-has been verified for this build.
+The default pace is 200 ms per game step (five steps/s). The selected upstream
+firmware has a 100 ms UI ticker; settings below 100 ms cannot produce a frame
+per step. Actual pace can also be limited by VM/display throughput. No physical
+frame-rate claim has been verified for this build.
 Press T in the game for timing logs; M then restarts the same seed in legacy or
 bitmap mode. The [performance guide](goatwars-performance.md) explains the local
 benchmarks, physical checks and what the measurements cover.

@@ -247,7 +247,7 @@ defmodule GoatwarsIntegrationTest do
     assert queued.tick_ms == state.tick_ms
     refute_receive {:game_frame, _}, 0
     {:noreply, next} = Badge.UI.handle_info({:render_tick, self()}, queued)
-    assert_receive {:rendered, 100}
+    assert_receive {:rendered, 200}
     assert next.page_state.match.game.tick == 1
     assert next.page_state.match.game.players[1].direction == :south
     assert next.page_state.match.game.players[1].position == {0, 11}

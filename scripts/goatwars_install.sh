@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-firmware="${AVM_BADGE_PATH:-$(dirname -- "$root")/avm_badge}"
+firmware="${AVM_BADGE_PATH:-$root/_build/goatwars-upstream-firmware}"
 out="${GOATWARS_USB_OUTPUT:-$root/_build/goatwars-usb}"
 build_only=false
 case "${1:-}" in
@@ -23,7 +23,7 @@ echo "Building offline GoatWars USB image from $root"
 MIX_TARGET=badge run_mix "$firmware" run --no-start -e 'for path <- Mix.Tasks.Atomvm.Packbeam.runtime_deps(Mix.Dep.cached()), do: File.mkdir_p!(path)'
 run_mix "$firmware" atomvm.packbeam
 run_mix "$firmware" badge.assets
-run_mix "$root" run --no-start scripts/goatwars_usb.exs "$firmware" "$out"
+MIX_TARGET=badge run_mix "$firmware" run --no-start "$root/scripts/goatwars_usb.exs" "$firmware" "$out"
 python3 - "$out" <<'PY'
 import pathlib, sys
 root = pathlib.Path(sys.argv[1])

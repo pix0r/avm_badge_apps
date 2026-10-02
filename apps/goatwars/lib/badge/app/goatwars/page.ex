@@ -20,7 +20,7 @@ defmodule Badge.App.Goatwars.Page do
 
   defp prepare(options) do
     rules =
-      Keyword.get(options, :rules, %{width: 23, height: 23, explosion_radius: 2, retract_speed: 8})
+      Keyword.get(options, :rules, %{width: 23, height: 23, step_ms: 200, explosion_radius: 2, retract_speed: 8})
 
     setup = Setup.new(Keyword.get(options, :profiles, %{}))
     seed = Keyword.get(options, :seed, 1)
@@ -191,7 +191,6 @@ defmodule Badge.App.Goatwars.Page do
   def refresh(%{screen: :loading}), do: 0
   def refresh(state), do: tick_interval(state)
 
-  @impl true
   def tick_interval(%{screen: :game, started: true, paused: false, result_until: nil, match: %{game: %{config: %{step_ms: ms}}}}),
     do: ms
 

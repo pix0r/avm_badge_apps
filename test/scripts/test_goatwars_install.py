@@ -33,6 +33,8 @@ from pathlib import Path
 with open(os.environ['INSTALL_TEST_LOG'],'a') as log: log.write('mix ' + ' '.join(sys.argv[1:]) + '\n')
 if os.environ.get('FAIL_BUILD'): sys.exit(8)
 if 'goatwars_usb.exs' in ' '.join(sys.argv):
+    if os.environ.get('REQUIRE_FIRMWARE_PROJECT') and Path.cwd() != Path(os.environ.get('INSTALL_TEST_EXPECTED_FIRMWARE', os.environ.get('AVM_BADGE_PATH', ''))).resolve():
+        sys.exit(9)
     out=Path(sys.argv[-1]);out.mkdir(parents=True,exist_ok=True)
     (out/'navigation.txt').write_text('On Home, press Right 2 times, then the clover key to open GoatWars.\n')
     size=300000 if os.environ.get('OVERSIZE') else 128
@@ -78,6 +80,31 @@ sys.exit(int(os.environ.get('FLASH_STATUS','0')))
 
     def test_build_only_does_not_open_hardware(self):
         result = self.run_script('--build-only')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('esptool ', self.commands())
+
+    def test_usb_build_uses_the_selected_firmware_project(self):
+        self.env['REQUIRE_FIRMWARE_PROJECT'] = '1'
+        result = self.run_script('--build-only')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('esptool ', self.commands())
+
+    def test_default_install_uses_upstream_checkout_over_sibling(self):
+        project = self.root / 'apps'
+        script = project / 'scripts/goatwars_install.sh'
+        script.parent.mkdir(parents=True)
+        script.write_bytes(SCRIPT.read_bytes())
+        prepared = project / '_build/goatwars-upstream-firmware'
+        (prepared / 'lib/badge').mkdir(parents=True)
+        (prepared / 'lib/badge/store.ex').touch()
+        sibling = self.root / 'avm_badge/lib/badge'
+        sibling.mkdir(parents=True)
+        (sibling / 'store.ex').write_text('locally modified firmware')
+        self.env.pop('AVM_BADGE_PATH')
+        self.env['REQUIRE_FIRMWARE_PROJECT'] = '1'
+        self.env['INSTALL_TEST_EXPECTED_FIRMWARE'] = str(prepared)
+        result = subprocess.run(['bash', str(script), '--build-only'], env=self.env,
+                                text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn('esptool ', self.commands())
 
