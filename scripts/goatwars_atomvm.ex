@@ -2,6 +2,9 @@ defmodule GoatwarsReadiness do
   alias Badge.App.Goatwars.{Page, Match, Game}
 
   def start do
+    runtime_lifecycle()
+    failed_worker()
+    timed_turn()
     for profiles <- [%{}, %{3 => :inactive, 4 => :inactive}] do
       page = Page.init(countdown_ms: 0, profiles: profiles) |> Page.advance(0)
       200 = Page.tick_interval(page)
@@ -25,6 +28,7 @@ defmodule GoatwarsReadiness do
       1 = stepped.match.game.tick
       :west = stepped.match.game.players[1].direction
       :undefined = :erlang.get(input.input_ref)
+      :ok = Page.leave(stepped)
     end
     rounds(1)
     state = Page.init()
@@ -72,6 +76,65 @@ defmodule GoatwarsReadiness do
     :ok
   end
 
+  defp runtime_lifecycle do
+    previous = :erlang.system_info(:schedulers_online)
+    for action <- [{:char, 32}, {:char, ?s}, {:char, ?r}, :leave] do
+      state = Page.init(countdown_ms: 0)
+      waiting = Page.tick(state)
+      ^previous = :erlang.system_info(:schedulers_online)
+      stepped = receive do
+        {:goatwars_step, _, _, _, _} = message ->
+          {:ok, next} = Page.handle_info(message, waiting)
+          next
+      end
+      ^previous = :erlang.system_info(:schedulers_online)
+      if action == :leave, do: Page.leave(stepped), else: Page.handle_key(action, stepped)
+      ^previous = :erlang.system_info(:schedulers_online)
+    end
+  end
+
+  defp timed_turn do
+    previous = :erlang.system_info(:schedulers_online)
+    state = Page.tick(Page.init(countdown_ms: 0))
+    next = receive do
+      {:goatwars_step, _, _, _, _} = message ->
+        {:ok, next} = Page.handle_info(message, state)
+        next
+    end
+    true = length(Page.render(next)) > 0
+    due = receive do
+      {:goatwars_due, _, _, _} = message -> message
+    end
+    {:ok, final} = Page.handle_info(due, next)
+    true = final.match == Match.tick(next.match)
+    :undefined = :erlang.get({:goatwars_work, next.input_ref})
+    2 = final.match.game.tick
+    ^previous = :erlang.system_info(:schedulers_online)
+    Page.leave(final)
+    :ignore = Page.handle_info(due, final)
+  end
+
+  defp failed_worker do
+    previous = :erlang.system_info(:schedulers_online)
+    state = Page.init(countdown_ms: 0)
+    match = Map.fetch!(state, :match)
+    controllers = Map.put(Map.fetch!(match, :controllers), 2, {GoatwarsBrokenController, nil})
+    waiting = Page.tick(%{state | match: %{match | controllers: controllers}})
+    try do
+      receive do
+        {:DOWN, _, :process, _, _} = message ->
+          try do
+            Page.handle_info(message, waiting)
+          catch
+            :error, _ -> :ok
+          end
+      end
+      ^previous = :erlang.system_info(:schedulers_online)
+    after
+      Page.leave(waiting)
+    end
+  end
+
   defp wall_turn do
     page = Page.init(countdown_ms: 0)
     {:ok, game} = Game.new(page.match.game.config, [
@@ -100,4 +163,8 @@ defmodule GoatwarsReadiness do
     :io.format(~c"Seed ~p: ~p ticks, ~p~n", [seed, match.game.tick, match.game.status])
     rounds(seed + 1)
   end
+end
+
+defmodule GoatwarsBrokenController do
+  def choose(_game, _id, _memory), do: :erlang.error(:fixture_failure)
 end

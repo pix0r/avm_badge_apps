@@ -2,6 +2,8 @@ defmodule Badge.App.Goatwars.Arena do
   @moduledoc "Inclusive playable bounds and the next contraction deadline."
   alias Badge.App.Goatwars.Config
 
+  @compile :no_line_info
+
   @type t :: %{
           left: non_neg_integer(),
           top: non_neg_integer(),

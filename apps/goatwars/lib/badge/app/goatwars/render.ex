@@ -1,5 +1,6 @@
 defmodule Badge.App.Goatwars.Render do
   @moduledoc "AtomGL content items, drawn front-to-back, for a 320×240 badge."
+  @compile :no_line_info
   alias Badge.App.Goatwars.{Arena, Game}
   alias __MODULE__.Layout
 

@@ -74,6 +74,120 @@ defmodule Badge.App.Goatwars.PageTest do
     assert :erlang.get({:goatwars_work, state.input_ref}) == :undefined
   end
 
+  test "AI preparation overlaps the steering interval and late keys affect movement" do
+    state = Page.init(countdown_ms: 0)
+    controllers = Map.put(state.match.controllers, 2, {BlockedController, self()})
+    state = %{state | match: %{state.match | controllers: controllers}}
+    Page.tick(state)
+    assert_receive {:blocked_decision, worker}
+    send(worker, :continue)
+    assert_receive {:goatwars_step, _, _, _, _} = message
+    {:ok, next} = Page.handle_info(message, state)
+    try do
+      Page.render(next)
+      assert_receive {:blocked_decision, preparation}, 100
+      refute_receive {:goatwars_step, _, _, _, _}, 50
+      assert Page.handle_key({:move, :left}, next) == :ignore
+      send(preparation, :continue)
+      assert_receive {:goatwars_due, _, _, _} = due, 300
+      Page.handle_info(due, next)
+      assert_receive {:goatwars_step, _, _, _, _} = message
+      {:ok, steered} = Page.handle_info(message, next)
+      assert steered.match.game.players[1].direction == :west
+      refute_receive {:blocked_decision, _}, 20
+    after
+      Page.leave(next)
+    end
+  end
+
+  test "a completed step is rendered before another decision can replace it" do
+    state = Page.init(countdown_ms: 0)
+    controllers = Map.put(state.match.controllers, 2, {ObservedController, self()})
+    state = %{state | match: %{state.match | controllers: controllers}}
+    Page.tick(state)
+    assert_receive {:decision_process, _}
+    assert_receive {:goatwars_step, _, _, _, _} = message
+    {:ok, next} = Page.handle_info(message, state)
+    next = %{next | due_at: nil}
+    try do
+      assert Page.tick(next) == next
+      refute_receive {:decision_process, _}, 50
+      assert length(Page.render(next)) > 0
+      assert_receive {:goatwars_due, _, _, _} = due, 300
+      Page.handle_info(due, next)
+      assert_receive {:decision_process, _}
+    after
+      Page.leave(next)
+    end
+  end
+
+  test "an overdue calculation still leaves a steering interval after its frame is rendered" do
+    state = Page.init(countdown_ms: 0)
+    controllers = Map.put(state.match.controllers, 2, {ObservedController, self()})
+    state = %{state | match: %{state.match | controllers: controllers}}
+    Page.tick(state)
+    assert_receive {:decision_process, _}
+    assert_receive {:goatwars_step, _, _, _, _} = message
+    {:ok, next} = Page.handle_info(message, state)
+    next = %{next | due_at: nil}
+    try do
+      Page.render(next)
+      Page.tick(next)
+      assert_receive {:decision_process, _}
+      refute_receive {:goatwars_due, _, _, _}, 100
+      Page.handle_key({:move, :left}, next)
+      assert_receive {:goatwars_due, _, _, _} = due, 300
+      Page.handle_info(due, next)
+      assert_receive {:goatwars_step, _, _, _, _} = message
+      {:ok, steered} = Page.handle_info(message, next)
+      assert steered.match.game.players[1].direction == :west
+    after
+      Page.leave(next)
+    end
+  end
+
+  test "a prepared step publishes at the steering deadline without another movement worker" do
+    state = Page.tick(Page.init(countdown_ms: 0))
+    assert_receive {:goatwars_step, _, _, _, _} = message
+    {:ok, next} = Page.handle_info(message, state)
+    try do
+      Page.render(next)
+      refute_receive {:goatwars_due, _, _, _}, 100
+      assert_receive {:goatwars_due, _, _, _} = due, 300
+      {:ok, stepped} = Page.handle_info(due, next)
+      assert stepped.match.game.tick == 2
+      assert stepped.match == Match.tick(next.match)
+      assert :erlang.get({:goatwars_work, next.input_ref}) == :undefined
+      refute_receive {:goatwars_step, _, _, _, _}, 20
+    after
+      Page.leave(next)
+    end
+  end
+
+  test "completed steps do not enter the firmware's human-key protocol" do
+    state = Page.tick(Page.init(countdown_ms: 0))
+    assert_receive {:goatwars_step, _, _, _, _} = message
+    {:ok, next} = Page.handle_info(message, state)
+    try do
+      refute_receive {:"$gen_cast", {:key, _}}, 10
+    after
+      Page.leave(next)
+    end
+  end
+
+  test "leaving cancels a turn timer and rejects its already queued wakeup" do
+    state = Page.tick(Page.init(countdown_ms: 0))
+    assert_receive {:goatwars_step, _, _, _, _} = message
+    {:ok, next} = Page.handle_info(message, state)
+    Page.render(next)
+    {timer, _} = :erlang.get({:goatwars_work, next.input_ref})
+    monitor = Process.monitor(timer)
+    Page.leave(next)
+    assert_receive {:DOWN, ^monitor, :process, ^timer, _}
+    assert Page.handle_info({:goatwars_due, next.input_ref, timer, nil}, next) == :ignore
+    refute_receive {:goatwars_step, _, _, _, _}, 250
+  end
+
   test "pausing rejects an already completed step from the cancelled worker" do
     state = Page.init(countdown_ms: 0)
     assert Page.tick(state) == state
@@ -108,7 +222,9 @@ defmodule Badge.App.Goatwars.PageTest do
     assert next.benchmark
     assert :erlang.get(state.input_ref) == %{1 => :right}
     next = %{next | due_at: nil}
-    assert Page.tick(next) == next
+    Page.render(next)
+    assert_receive {:goatwars_due, _, _, _} = due, 300
+    assert Page.handle_info(due, next) == {:ok, next}
     assert_receive {:goatwars_step, _, _, _, _} = message
     {:ok, steered} = Page.handle_info(message, next)
     assert steered.match.controllers[1] == :human

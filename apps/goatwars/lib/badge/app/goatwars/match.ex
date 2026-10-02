@@ -4,6 +4,7 @@ defmodule Badge.App.Goatwars.Match do
   headless simulation. Controller entries are `:human` or `{module, memory}`.
   Replay commands are stored newest first, one entry per completed tick.
   """
+  @compile :no_line_info
   alias Badge.App.Goatwars.{Bot, Config, Game, SimpleBot, State}
 
   @type t :: %{
@@ -78,11 +79,25 @@ defmodule Badge.App.Goatwars.Match do
     end
   end
 
-  @spec tick(t()) :: t()
-  def tick(%{game: %{status: status}} = match) when status != :running, do: match
+  @doc "Prepares AI commands for the current game before human commands close."
+  def prepare(%{game: %{status: status}, controllers: controllers}) when status != :running,
+    do: {%{}, controllers}
 
-  def tick(%{game: game, controllers: controllers, pending: pending, scores: scores, replay: replay, record_replay: record} = match) do
-    {turns, controllers} = choose_all(Game.living(game), game, pending, controllers, %{}, nil)
+  def prepare(%{game: game, pending: pending, controllers: controllers}),
+    do: choose_all(Game.living(game), game, pending, controllers, %{}, nil)
+
+  @spec tick(t()) :: t()
+  def tick(match), do: tick(match, nil)
+
+  @doc "Steps the same game with prepared AI choices and the latest human commands."
+  def tick(%{game: %{status: status}} = match, _choices) when status != :running, do: match
+
+  def tick(%{game: game, controllers: controllers, pending: pending, scores: scores, replay: replay, record_replay: record} = match, choices) do
+    {turns, controllers} =
+      case choices do
+        nil -> prepare(match)
+        {turns, computed} -> latest_choices(Game.living(game), pending, computed, turns, controllers)
+      end
     {:ok, game, events} = Game.step(game, turns)
     %{players: players, config: %{points_per_tick: points, bonus_start: start, bonus_decay: decay}, tick: tick, status: status} = game
     scores = score_players(:maps.to_list(players), scores, points)
@@ -112,6 +127,19 @@ defmodule Badge.App.Goatwars.Match do
         events: events,
         replay: if(record, do: [turns | replay], else: [])
     }
+  end
+
+  defp latest_choices([], _pending, _computed, turns, controllers), do: {turns, controllers}
+
+  defp latest_choices([%{id: id} | rest], pending, computed, turns, controllers) do
+    {turns, controllers} =
+      case Map.fetch!(controllers, id) do
+        :human ->
+          turn = Map.get(pending, id)
+          {if(turn == nil, do: Map.delete(turns, id), else: Map.put(turns, id, turn)), controllers}
+        _bot -> {turns, Map.put(controllers, id, Map.fetch!(computed, id))}
+      end
+    latest_choices(rest, pending, computed, turns, controllers)
   end
 
   defp choose_all([], _game, _pending, controllers, turns, _prepared), do: {turns, controllers}

@@ -74,7 +74,7 @@ manifest are not changed by building these images.
 
 1. Wait for Home. Press Right twice to reach home screen three, then press the
    clover key for GoatWars. The title waits for Enter. A three-second countdown
-   then leads into M Square, 23×23 cells at 8 pixels per cell and 200 ms per step.
+   then leads into M Square, 23×23 cells at 8 pixels per cell and a 200 ms steering interval.
 2. Use Left/Right to take over player one. Space pauses and resumes. `S` opens
    player settings, arrows change selections, and Enter applies them. G cycles
    S/M/L/XL boards; A switches Square/Wide; F slows down by 10 ms and V speeds up by 10 ms,
@@ -115,10 +115,13 @@ P1 uses a bright purple laser; the other player colors remain saturated. AI crui
 and checks longer side lanes when forced to turn; it still attempts nearby cutoffs.
 Result screens use a smaller goat lower down, above the scores.
 Rematches preserve board size, aspect and speed; leaving and reopening restores defaults.
-The default pace is 200 ms per game step (five steps/s). The selected upstream
-firmware has a 100 ms UI ticker; settings below 100 ms cannot produce a frame
-per step. Actual pace can also be limited by VM/display throughput. No physical
-frame-rate claim has been verified for this build.
+The default is a 200 ms steering interval after each new game frame is prepared.
+The worker previews the next step during that interval. With no human turn, the
+preview is published at the deadline; late steering reuses the prepared AI and
+recomputes movement. UI scheduling and display time still affect the actual rate.
+A completed step reaches the render callback before the next step can replace it. The selected upstream firmware has a 100 ms UI ticker; settings below
+100 ms cannot produce a frame per step. The app leaves firmware scheduler settings
+unchanged. Human confirmation of movement and steering feel remains necessary.
 Press T in the game for timing logs; M then restarts the same seed in legacy or
 bitmap mode. The [performance guide](goatwars-performance.md) explains the local
 benchmarks, physical checks and what the measurements cover.

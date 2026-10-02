@@ -2,6 +2,16 @@ defmodule Badge.App.Goatwars.BoardTest do
   use ExUnit.Case, async: true
   alias Badge.App.Goatwars.Board
 
+  test "bitmap reads reject partial pixels and similar colors with a different byte" do
+    for pixel <- [<<200, 64, 255, 0>>, <<200, 65, 255, 255>>, <<0, 255, 137, 255>>, <<255, 40, 93, 255>>, <<112, 65, 255, 255>>, <<200, 64, 255>>] do
+      assert Board.get({1, 1, pixel}, {0, 0}) == nil
+    end
+    board = Board.new(%{width: 2, height: 2}, %{{1, 1} => 4})
+    for cell <- [{-1, 0}, {0, -1}, {2, 0}, {0, 2}], do: assert(Board.get(board, cell) == nil)
+    assert Board.get({2, 2, <<200, 64, 255, 255>>}, {0, 0}) == 1
+    assert Board.get({2, 2, <<200, 64, 255, 255>>}, {1, 0}) == nil
+  end
+
   test "empty bitmap cells use the opaque Elixir purple background" do
     board = Board.new(%{width: 3, height: 2}, %{})
     assert board == {3, 2, :binary.copy(<<61, 23, 90, 255>>, 6)}

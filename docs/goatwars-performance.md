@@ -1,5 +1,85 @@
 # GoatWars performance verification
 
+## Store firmware app corrections, October 2
+
+The app waits for each completed step to reach its render callback before
+replacing it. A new game frame starts the selected steering interval; repeated
+status redraws do not restart it. During that interval, one monitored worker
+prepares AI choices and previews the next complete step. At the deadline, the
+page publishes that preview if there is no buffered human turn. A late turn
+reuses the prepared AI choices and recomputes movement with the latest human
+commands and controller ownership. Pause, settings, rematch and leaving cancel
+both paths; stale worker results are rejected. Pure simulation clocks and seeded
+replays are unchanged.
+
+The default remains a 200 ms steering interval. Calculation overlaps that
+interval instead of always being added after it. UI scheduling and display time
+still affect actual movement, so this is not a five-frames-per-second claim.
+Redraws use the stock UI ticker; no synthetic human-key events are sent and the
+firmware's scheduler count remains unchanged.
+
+Bitmap reads validate the exact RGBA colors with short-circuit byte reads.
+SimpleBot skips side candidates only when its straight score cannot be beaten,
+and scans long empty bitmap lanes by byte offset. The fallback preserves map
+boards and malformed/unknown-pixel behavior. Clear-cell patching shares one
+pixel binary. Fixed seeded replays, all headings and nearby interception choices
+remain covered by app tests.
+
+A bounded capture on unchanged published Store firmware recorded 109 completed
+steps in the initial four-player phase and 97 in the dedicated two-player phase.
+Every increasing tick reached the app render callback. While all four were
+alive, step gaps had a 335.5 ms median and 406.7 ms p95, versus 496.5 ms in the
+preceding timer-only build. The two-player phase measured 316.8 ms median and
+399.2 ms p95, versus 435.9 ms before previewing. The four-alive sample contains
+nine gaps; the two-player sample contains 96. No watchdog or crash was recorded.
+This measures app frame materialization, not physical panel completion. Human
+confirmation is still required to establish pre-switch gameplay feel.
+
+A longer run completed 316 M Square steps and 179 XL Wide steps, with every
+step reaching the render callback before the next replaced it. Four-alive median
+gaps were 316.2 ms over 36 M Square samples and 332.0 ms over 178 XL Wide samples.
+No watchdog or crash occurred during the 207-second active sequence. Reported
+free heap recovered from roughly 1.93 MB during play to 2.03 MB after Home;
+this is total heap, not a measurement of internal RAM.
+
+A wall fixture uses the real UI, normal title/countdown and a human P1. It injects
+a turn after the first frame is prepared, with P1 one step from a wall. All four
+left/right repetitions survive. Key acceptance measured 67–111 ms; movement
+with that turn completed 251–366 ms after injection. The injected UI event does
+not include physical keyboard scanning or a player's reaction time.
+
+223 app tests pass. The pinned native VM resolves all imports and 63 instructions
+across 21 source modules; the actual Store pack and split USB images load and
+exercise preview publication, late input, cancellation and worker failure.
+The optimized board/controller revision also passes 2,400 seeded rounds across
+all eight board geometries and three heap caps, plus 32 retained-frame fixtures.
+No firmware test suite was run. Selected app modules omit bytecode line markers
+to fit the Store limit; private function metadata remains present.
+
+The Store pack is 65,524/65,536 bytes; USB main is 638,808/671,744 and assets are
+262,144/262,144. Published Store firmware remains pinned to
+`bf0cc9621b5fe9543a2c600ae43115e87fc78156`, with no source or index changes.
+The physical VM's boot ELF SHA matches published badge-v1 image metadata.
+
+Excluded hardware experiments include packing the whole page state into a binary
+(which worsened pacing), parallel AI (little consistent full-step gain), and
+scheduler-count changes (watchdog reports during longer play). No scheduler
+experiment is part of the release.
+
+After app-side experiments, the unchanged contributor head of
+[Pong support PR #2](https://github.com/mwingert/avm_badge/pull/2),
+`fe03f0ba4710e22859bd53ddfb072f53796001d7`, was measured separately. Its 50 ms
+UI ticker and tick backpressure gave 459.5 ms four-alive and 418.1 ms two-player
+medians on the timer-only app, a modest improvement. That older Store firmware
+is excluded; the final app preview runs on the current published Store revision.
+
+Evidence is under `/private/tmp/goatwars-perfect/`: `preview-green2.log`,
+`preview-native/`, `pipeline-full/`, `preview-frames-device.log`,
+`preview-frames-four.json`, `preview-frames-two.json`,
+`preview-input-device.log`, `soak-device.log`, `preview-soak-four.json`,
+`preview-soak-xl_wide.json` and `pong-frames-device.log`. Temporary diagnostic
+launchers are absent from the normal install image.
+
 ## UI overload measured on the badge, October 2
 
 The refresh correction below did not resolve physical playability. A bounded

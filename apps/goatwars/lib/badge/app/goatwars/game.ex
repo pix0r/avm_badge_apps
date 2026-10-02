@@ -4,6 +4,7 @@ defmodule Badge.App.Goatwars.Game do
   omission preserves heading. Explosions and retraction clear trails when enabled.
   Contraction removes the outer ring before movement and sweeps bikes on it.
   """
+  @compile :no_line_info
   alias Badge.App.Goatwars.{Arena, Board, Config, Player, State}
 
   @type event :: {:crashed, integer(), Player.position()} | {:arena_shrank, non_neg_integer()}

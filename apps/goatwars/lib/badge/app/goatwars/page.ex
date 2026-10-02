@@ -4,6 +4,7 @@ defmodule Badge.App.Goatwars.Page do
 
   Steering is buffered in the UI; game steps finish through an app-owned worker.
   """
+  @compile :no_line_info
   use Badge.Page
   alias Badge.App.Goatwars.{Art, Game, Match, Render, Setup, SimpleBot}
   alias __MODULE__.State
@@ -103,6 +104,7 @@ defmodule Badge.App.Goatwars.Page do
   @impl true
   def leave(%{input_ref: ref}) do
     :erlang.erase(ref)
+    :erlang.erase({:goatwars_frame, ref})
     case :erlang.erase({:goatwars_work, ref}) do
       {worker, monitor} ->
         :erlang.exit(worker, :kill)
@@ -176,43 +178,81 @@ defmodule Badge.App.Goatwars.Page do
   defp settings_key(_, _), do: :ignore
 
   @impl true
+  def tick(%{input_ref: ref, frame: frame} = state) do
+    now = :erlang.monotonic_time(:millisecond)
+    if :erlang.get({:goatwars_frame, ref}) == :undefined, do: :erlang.put({:goatwars_frame, ref}, {frame, now})
+    badge_advance(state, now)
+  end
   def tick(state), do: badge_advance(state, :erlang.monotonic_time(:millisecond))
 
-  defp badge_advance(%{screen: :game, started: false, paused: false} = state, now) do
+  defp badge_advance(state, now, prepared \\ nil)
+
+  defp badge_advance(%{screen: :game, started: false, paused: false} = state, now, _prepared) do
     state = launch(state, now)
-    if Map.fetch!(state, :launch_remaining) == 0, do: badge_advance(%{state | started: true}, now), else: state
+    if Map.fetch!(state, :launch_remaining) == 0 do
+      :erlang.put({:goatwars_frame, Map.fetch!(state, :input_ref)}, {Map.fetch!(state, :frame), now})
+      badge_advance(%{state | started: true}, now)
+    else
+      state
+    end
   end
 
-  defp badge_advance(%{screen: :game, started: true, paused: false, result_until: nil, due_at: due, input_ref: ref} = state, now)
-       when due == nil or now >= due do
-    case :erlang.get({:goatwars_work, ref}) do
-      :undefined ->
+  defp badge_advance(%{screen: :game, started: true, paused: false, result_until: nil, due_at: due, input_ref: ref, frame: frame} = state, now, prepared) do
+    case {:erlang.get({:goatwars_work, ref}), :erlang.get({:goatwars_frame, ref})} do
+      {:undefined, {^frame, ready}} ->
         parent = self()
-        turns = :erlang.erase(ref)
+        ready = if is_integer(due), do: max(due, ready), else: ready
         options = if :erlang.system_info(:machine) == ~c"BEAM", do: [:monitor], else: [:monitor, {:atomvm_heap_growth, :fibonacci}]
-        job = :erlang.spawn_opt(fn ->
-          if turns != :undefined, do: :erlang.put(ref, turns)
-          started = :erlang.monotonic_time(:microsecond)
-          next = advance(state, now)
-          elapsed = :erlang.monotonic_time(:microsecond) - started
-          send(parent, {:goatwars_step, ref, self(), next, elapsed})
-        end, options)
-        :erlang.put({:goatwars_work, ref}, job)
-        state
+        if now < ready do
+          job = :erlang.spawn_opt(fn ->
+            prepared =
+              if prepared == nil do
+                started = :erlang.monotonic_time(:microsecond)
+                choices = Match.prepare(Map.fetch!(state, :match))
+                next = advance_step(state, ready, choices)
+                {choices, next, :erlang.monotonic_time(:microsecond) - started}
+              else
+                prepared
+              end
+            remaining = ready - :erlang.monotonic_time(:millisecond)
+            if remaining > 0, do: Process.sleep(max(remaining, 10))
+            send(parent, {:goatwars_due, ref, self(), prepared})
+          end, options)
+          :erlang.put({:goatwars_work, ref}, job)
+          state
+        else
+          turns = :erlang.erase(ref)
+          case {prepared, turns} do
+            {{_choices, next, elapsed}, :undefined} -> measured_step(state, next, elapsed)
+            _ ->
+              job = :erlang.spawn_opt(fn ->
+                if turns != :undefined, do: :erlang.put(ref, turns)
+                started = :erlang.monotonic_time(:microsecond)
+                {choices, _preview, preparation_us} = if prepared == nil, do: {nil, nil, 0}, else: prepared
+                next = advance_step(state, now, choices)
+                elapsed = preparation_us + :erlang.monotonic_time(:microsecond) - started
+                send(parent, {:goatwars_step, ref, self(), next, elapsed})
+              end, options)
+              :erlang.put({:goatwars_work, ref}, job)
+              state
+          end
+        end
       _running -> state
     end
   end
 
-  defp badge_advance(state, now), do: advance(state, now)
+  defp badge_advance(state, now, _prepared), do: advance(state, now)
 
   @impl true
+  def handle_info({:goatwars_due, ref, worker, prepared}, %{input_ref: ref} = state) do
+    if take_work(ref, worker), do: {:ok, badge_advance(state, :erlang.monotonic_time(:millisecond), prepared)}, else: :ignore
+  end
+
   def handle_info({:goatwars_step, ref, worker, next, elapsed}, %{input_ref: ref} = state) do
-    case :erlang.get({:goatwars_work, ref}) do
-      {^worker, monitor} ->
-        :erlang.erase({:goatwars_work, ref})
-        :erlang.demonitor(monitor, [:flush])
-        {:ok, measured_step(state, next, elapsed)}
-      _stale -> :ignore
+    if take_work(ref, worker) do
+      {:ok, measured_step(state, next, elapsed)}
+    else
+      :ignore
     end
   end
 
@@ -226,6 +266,16 @@ defmodule Badge.App.Goatwars.Page do
   end
 
   def handle_info(_message, _state), do: :ignore
+
+  defp take_work(ref, worker) do
+    case :erlang.get({:goatwars_work, ref}) do
+      {^worker, monitor} ->
+        :erlang.erase({:goatwars_work, ref})
+        :erlang.demonitor(monitor, [:flush])
+        true
+      _ -> false
+    end
+  end
 
   defp measured_step(%{benchmark: false}, next, _elapsed), do: %{next | benchmark: false, bench_previous: nil}
 
@@ -270,7 +320,9 @@ defmodule Badge.App.Goatwars.Page do
 
   def advance(state, now) when is_integer(state.due_at) and now < state.due_at, do: state
 
-  def advance(
+  def advance(state, now), do: advance_step(state, now, nil)
+
+  defp advance_step(
         %{
           input_ref: ref,
           match: %{totals: previous_totals},
@@ -279,14 +331,15 @@ defmodule Badge.App.Goatwars.Page do
           due_at: previous_due,
           frame: frame
         } = state,
-        now
+        now,
+        choices
       ) do
     %{match: previous_match} = state =
       case :erlang.erase(ref) do
         :undefined -> state
         turns -> apply_turns(:maps.to_list(turns), state)
       end
-    %{totals: totals, events: events, game: %{config: %{step_ms: step_ms}, status: status}} = match = Match.tick(previous_match)
+    %{totals: totals, events: events, game: %{config: %{step_ms: step_ms}, status: status}} = match = Match.tick(previous_match, choices)
     scores = add_scores(:maps.to_list(totals), previous_totals, previous_scores)
     effects = crash_effects(events, age_effects(previous_effects))
     due_at = if is_integer(previous_due) and now < previous_due + step_ms * 2, do: previous_due + step_ms, else: now + step_ms
@@ -380,7 +433,23 @@ defmodule Badge.App.Goatwars.Page do
   end
 
   @impl true
-  def render(%{screen: :loading}) do
+  def render(state) do
+    items = render_items(state)
+    case state do
+      %{screen: :game, started: true, paused: false, result_until: nil, input_ref: ref, frame: frame, match: %{game: %{config: %{step_ms: ms}}}} ->
+        case :erlang.get({:goatwars_frame, ref}) do
+          {painted, _} when painted != frame ->
+            now = :erlang.monotonic_time(:millisecond)
+            :erlang.put({:goatwars_frame, ref}, {frame, now + ms})
+            badge_advance(state, now)
+          _ -> :ok
+        end
+      _ -> :ok
+    end
+    items
+  end
+
+  defp render_items(%{screen: :loading}) do
     [
       {:text, 88, 100, :default16px, 0xFFF5CC, 0x241332, "Loading GoatWars..."},
       {:text, 84, 124, :default16px, 0x5DE2B4, 0x241332, "Warming up the herd"},
@@ -388,10 +457,10 @@ defmodule Badge.App.Goatwars.Page do
     ]
   end
 
-  def render(%{screen: :settings} = state), do: render_settings(state)
-  def render(%{screen: :title, art: art}), do: Render.Interstitial.title(art)
+  defp render_items(%{screen: :settings} = state), do: render_settings(state)
+  defp render_items(%{screen: :title, art: art}), do: Render.Interstitial.title(art)
 
-  def render(%{benchmark: true} = state) do
+  defp render_items(%{benchmark: true} = state) do
     started = :erlang.monotonic_time(:microsecond)
     items = render_game(state)
     elapsed = :erlang.monotonic_time(:microsecond) - started
@@ -412,7 +481,7 @@ defmodule Badge.App.Goatwars.Page do
     items
   end
 
-  def render(state), do: render_game(state)
+  defp render_items(state), do: render_game(state)
 
   defp mode(%{compact: true}), do: ~c"bitmap"
   defp mode(_), do: ~c"legacy"

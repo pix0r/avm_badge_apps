@@ -2,6 +2,30 @@ defmodule Badge.App.Goatwars.SimpleBotTest do
   use ExUnit.Case, async: true
   alias Badge.App.Goatwars.{Arena, Board, Game, Player, SimpleBot}
 
+  test "a safe cruise far from opponent routes stays within a small decision budget" do
+    state = Badge.App.Goatwars.Page.init(countdown_ms: 0)
+    for id <- 1..4 do
+      {_, memory} = state.match.controllers[id]
+      assert {nil, next} = SimpleBot.choose(state.match.game, id, memory)
+      assert next.seed != memory.seed
+      assert reductions(state.match.game, memory) <= 100
+    end
+  end
+
+  test "nearby turning interceptions survive the cruise shortcut in every heading" do
+    for {other, horizon} <- [{{12, 11}, 2}, {{13, 12}, 3}], rotation <- 0..3 do
+      {:ok, game} = Game.new(%{width: 21, height: 21, shrink_after: :never}, [
+        %{id: 1, position: {10, 10}, direction: rotate_heading(:east, rotation)},
+        %{id: 2, position: rotate_position(other, rotation), direction: rotate_heading(:west, rotation)}
+      ])
+      for board <- [game, Game.compact(game)], seed <- [1, 7, 31] do
+        assert {:right, _} = SimpleBot.choose(board, 1, SimpleBot.init(seed, prediction_ticks: horizon))
+        assert {nil, _} = SimpleBot.choose(board, 1, SimpleBot.init(seed, prediction_ticks: 1))
+        assert {nil, _} = SimpleBot.choose(board, 1, SimpleBot.init(seed, prediction_ticks: horizon, aggression: 0))
+      end
+    end
+  end
+
   test "controller memory keeps only the small policy needed on every frame" do
     for profile <- [:beginner, :intermediate, :expert, :pro] do
       memory = SimpleBot.init(1, profile)
@@ -195,7 +219,7 @@ defmodule Badge.App.Goatwars.SimpleBotTest do
     for seed <- 1..32 do
       memory = SimpleBot.init(seed)
       assert {:left, _} = SimpleBot.choose(game, 1, memory)
-      assert reductions(game, memory) <= 1800
+      assert reductions(game, memory) <= 500
     end
   end
 
@@ -245,6 +269,11 @@ defmodule Badge.App.Goatwars.SimpleBotTest do
 
     game
   end
+
+  defp rotate_position(position, 0), do: position
+  defp rotate_position({x, y}, count), do: rotate_position({20 - y, x}, count - 1)
+  defp rotate_heading(heading, 0), do: heading
+  defp rotate_heading(heading, count), do: rotate_heading(Player.turn(heading, :right), count - 1)
 
   defp reductions(game, memory) do
     {:reductions, before} = Process.info(self(), :reductions)

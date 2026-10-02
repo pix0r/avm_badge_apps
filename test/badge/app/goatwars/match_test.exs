@@ -1,7 +1,41 @@
 defmodule Badge.App.Goatwars.MatchTest do
   use ExUnit.Case, async: true
 
-  alias Badge.App.Goatwars.{Bot, Game, Match}
+  alias Badge.App.Goatwars.{Bot, Game, Match, Page}
+
+  test "prepared choices preserve complete seeded match results" do
+    for seed <- 1..4, size <- [{23, 23}, {78, 46}] do
+      {width, height} = size
+      initial = Page.init(countdown_ms: 0, seed: seed, rules: %{width: width, height: height}).match
+      Enum.reduce(1..120, initial, fn _, match ->
+        choices = Match.prepare(match)
+        assert Match.tick(match, choices) == Match.tick(match)
+        Match.tick(match, choices)
+      end)
+    end
+  end
+
+  test "human takeover after preparation replaces its cached AI command" do
+    initial = Page.init(countdown_ms: 0).match
+    choices = Match.prepare(initial)
+    latest = initial |> Match.control(1, :human) |> Match.command(1, :left)
+    assert Match.tick(latest, choices) == Match.tick(latest)
+    assert Match.tick(latest, choices).game.players[1].direction == :west
+  end
+
+  test "human takeover without a command discards a prepared evasive turn" do
+    initial = Page.init(countdown_ms: 0).match
+    {:ok, game} = Game.new(initial.game.config, [
+      %{id: 1, position: {0, 0}, direction: :north},
+      %{id: 2, position: {11, 10}, direction: :east}
+    ])
+    initial = %{initial | game: Game.compact(game)}
+    choices = Match.prepare(initial)
+    latest = Match.control(initial, 1, :human)
+    next = Match.tick(latest, choices)
+    assert next == Match.tick(latest)
+    refute next.game.players[1].alive
+  end
 
   test "run rejects tick budgets that are not nonnegative integers" do
     match = Match.demo(%{width: 12, height: 10})

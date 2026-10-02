@@ -93,10 +93,9 @@ Artwork is embedded as RLE-compressed sixteen-colour pixel indices (3,748
 bytes), decoded once when the page opens, and reused as RGBA binaries (46.5 KiB).
 Stars and neon scenery are display primitives. The Elixir/Goatmire palette uses a
 slightly lighter purple board without grid lines and saturated bright purple,
-neon green, hot pink and violet trails. The app pack is 65,140 bytes, under the 65,536-byte
-Store limit. The matching offline USB build has
-3,700 bytes free in firmware and no free space in assets; rebuild and check both
-sizes after changes.
+neon green, hot pink and violet trails. The app pack is 65,524 bytes, under the 65,536-byte
+Store limit. The matching offline USB main pack is 638,808/671,744 bytes and
+assets are 262,144/262,144; rebuild and check both sizes after changes.
 The USB pack excludes host-only Mix tasks. [Artwork and extraction prompts](assets/source.json)
 record the two sprites; PNG previews are excluded from firmware packs.
 `Page.init(countdown_ms: 0)` skips loading, the title and countdown for tests and benchmarks.
@@ -108,14 +107,17 @@ The last press before a tick wins. Held-key integration remains deferred.
 ## Rules and configuration
 
 The badge preset is M Square: 23×23 cells, drawn at 8 pixels per cell, at
-200 ms per step (five steps per second). Square spawns are rotationally symmetric, including even sizes.
+a 200 ms steering interval after each prepared frame. Square spawns are
+rotationally symmetric, including even sizes.
 Its fixed bitmap is 2,116 bytes with packed trails, rendered as one scaled image.
 In settings, G cycles M → L → XL → S; A switches the selected size between
 Square and Wide. Enter applies the draft, and S cancels it. F/V adjust speed
 without changing the board. Custom width/height rules still fit automatically.
-The paired USB firmware honors the chosen tick cadence, including below 100 ms;
-older firmware ticks pages every 100 ms. Actual physical frame rate can be lower
-than the requested rate if gameplay or display work takes longer.
+The app previews the next step during the steering interval using one monitored
+worker. Late human turns reuse the AI choices and recompute movement. The current
+unmodified Store firmware ticks its UI every 100 ms; faster settings do not
+guarantee an equally fast display. Calculation, UI scheduling and display work
+affect the actual movement rate.
 [Performance verification](../../docs/goatwars-performance.md)
 contains benchmarks and device timing instructions.
 
@@ -263,11 +265,11 @@ map rendering compresses horizontal trail runs.
 
 Readiness checks now run on the refactored GoatWars source: native badge-v1
 AtomVM execution, actual released boot-library loading, pack/signature checks,
-resource sweeps and real Store firmware UI integration. See
+resource sweeps and app lifecycle checks. No firmware test suite is required. See
 [the evidence report](../../docs/goatwars-readiness.md) for exact snapshots,
 commands and limits. The selected Store firmware's HTTPS SSL crash risk remains
-unresolved. Physical frame timing, display output and internal RAM must still be
-measured. A fresh badge build needs the empty host-dependency directories that
+unresolved. Bounded on-device checks cover app frame timing and late steering;
+physical display completion and gameplay feel still need human confirmation. A fresh badge build needs the empty host-dependency directories that
 `mix store.pack` prepares before `mix atomvm.check` can run.
 
 Original references: [original game](https://en.wikipedia.org/wiki/BeamWars),
