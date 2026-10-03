@@ -1,5 +1,45 @@
 # GoatWars performance verification
 
+## Unresolved device freeze, October 3
+
+The user reports a freeze near tick 4 and bonus 4940. The app candidate
+`1b77829` has not passed physical gameplay acceptance; the measurements below
+do not establish that this freeze is fixed.
+
+Further device captures use the actual GoatWars page, unchanged Store firmware
+and the same paired USB images. One capture reaches tick 4 with bonus 4940 and
+then continues. Quiet runs reach tick 91 before the firmware's normal idle sleep
+and resume on a keypress. Starting `Badge.start/0` in the original VM startup
+process also advances. Simultaneous steering for all four players, pause/resume,
+settings cancellation and rematches complete without reproducing the freeze.
+The public keyboard profiling workload and repeated input were also exercised.
+Immediate entry during boot and XL Wide at 50 ms also advance; the XL capture
+reaches tick 49, then accepts four-player steering and advances after a restart.
+
+These probes record page state, worker liveness, buffered input, frame markers,
+UI dirty/sleep state and queue length. They do not observe LCD pixels or physically
+press switches. Temporary launchers are excluded from the normal install, and
+upstream firmware source and index remain unchanged.
+
+A separate controller fixture demonstrates a lifecycle blind spot: a worker
+exiting normally without sending its result leaves a dead work slot. The app now
+clears that slot and surfaces the failure through the same callback error path
+as an abnormal exit. Successful completions clear and demonitor the job first;
+cancelled or stale workers remain ignored. No retry has been added. Production
+workers send their result before returning, so this fixture does not establish
+the cause of the reported tick-4 freeze.
+
+The regression fails first on the host and the pinned native VM. All 224 app
+tests and native Store/split-USB readiness checks pass after the correction.
+An injected normal exit on the badge returns to Home; reopening GoatWars then
+advances to ticks 6 and 30. The normal Store pack is 65,508/65,536 bytes, USB main
+is 638,792/671,744 and assets remain 262,144/262,144. Default pacing is unchanged.
+
+Captures and launcher sources are under `/private/tmp/goatwars-freeze/`, including
+`actual-page-device.log`, `scanner-device.log`, `silent-device.log`,
+`main-context-device.log`, `cancel-device.log`, `xl-wide-fast-device.log`,
+`normal-exit-device.log`, `normal-down-green.log` and `normal-down-native-green2/`.
+
 ## Store firmware app corrections, October 2
 
 The app waits for each completed step to reach its render callback before

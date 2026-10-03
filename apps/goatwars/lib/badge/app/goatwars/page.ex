@@ -256,7 +256,7 @@ defmodule Badge.App.Goatwars.Page do
     end
   end
 
-  def handle_info({:DOWN, monitor, :process, worker, reason}, %{input_ref: ref}) when reason != :normal do
+  def handle_info({:DOWN, monitor, :process, worker, reason}, %{input_ref: ref}) do
     case :erlang.get({:goatwars_work, ref}) do
       {^worker, ^monitor} ->
         :erlang.erase({:goatwars_work, ref})

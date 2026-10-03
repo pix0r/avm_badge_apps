@@ -33,6 +33,26 @@ defmodule Badge.App.Goatwars.PageTest do
     end
   end
 
+  defmodule ExitingController do
+    def choose(_game, _id, reason), do: exit(reason)
+  end
+
+  test "a worker exiting without a result surfaces failure instead of retaining a dead job" do
+    for reason <- [:normal, :decision_failed] do
+      state = Page.init(countdown_ms: 0)
+      controllers = Map.put(state.match.controllers, 2, {ExitingController, reason})
+      state = %{state | match: %{state.match | controllers: controllers}}
+      Page.tick(state)
+      assert_receive {:DOWN, _, :process, _, ^reason} = message
+      try do
+        assert catch_error(Page.handle_info(message, state)) == reason
+        assert :erlang.get({:goatwars_work, state.input_ref}) == :undefined
+      after
+        Page.leave(state)
+      end
+    end
+  end
+
   test "badge ticks return before a slow decision finishes" do
     observer = self()
     for started <- [true, false] do

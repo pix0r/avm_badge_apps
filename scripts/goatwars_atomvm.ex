@@ -116,22 +116,28 @@ defmodule GoatwarsReadiness do
 
   defp failed_worker do
     previous = :erlang.system_info(:schedulers_online)
-    state = Page.init(countdown_ms: 0)
-    match = Map.fetch!(state, :match)
-    controllers = Map.put(Map.fetch!(match, :controllers), 2, {GoatwarsBrokenController, nil})
-    waiting = Page.tick(%{state | match: %{match | controllers: controllers}})
-    try do
-      receive do
-        {:DOWN, _, :process, _, _} = message ->
-          try do
-            Page.handle_info(message, waiting)
-          catch
-            :error, _ -> :ok
-          end
+    for reason <- [:normal, :fixture_failure] do
+      state = Page.init(countdown_ms: 0)
+      match = Map.fetch!(state, :match)
+      controllers = Map.put(Map.fetch!(match, :controllers), 2, {GoatwarsBrokenController, reason})
+      waiting = Page.tick(%{state | match: %{match | controllers: controllers}})
+      {worker, monitor} = :erlang.get({:goatwars_work, waiting.input_ref})
+      try do
+        receive do
+          {:DOWN, ^monitor, :process, ^worker, exit_reason} = message ->
+            failure = try do
+              Page.handle_info(message, waiting)
+              :missing_failure
+            catch
+              :error, error -> error
+            end
+            ^exit_reason = failure
+            :undefined = :erlang.get({:goatwars_work, waiting.input_ref})
+        end
+        ^previous = :erlang.system_info(:schedulers_online)
+      after
+        Page.leave(waiting)
       end
-      ^previous = :erlang.system_info(:schedulers_online)
-    after
-      Page.leave(waiting)
     end
   end
 
@@ -166,5 +172,6 @@ defmodule GoatwarsReadiness do
 end
 
 defmodule GoatwarsBrokenController do
+  def choose(_game, _id, :normal), do: :erlang.exit(:normal)
   def choose(_game, _id, _memory), do: :erlang.error(:fixture_failure)
 end
